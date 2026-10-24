@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<meta name="referrer" content="no-referrer">
+<title>Gelecek IPTV Kurulum</title>
+<style>
+:root { --bg: #0b0f14; --panel: #121a23; --line: #2a3542; --fg: #e8eef5; --mut: #9aa7b4; --acc: #2f81f7; --ok: #3fb950; }
+:root[data-theme="light"] { --bg: #f5f7fa; --panel: #fff; --line: #d5dce4; --fg: #14202c; --mut: #5a6878; }
+@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) { --bg: #f5f7fa; --panel: #fff; --line: #d5dce4; --fg: #14202c; --mut: #5a6878; } }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+main { max-width: 560px; margin: 0 auto; padding: 24px 16px 48px; }
+h1 { font-size: 24px; margin: 0 0 4px; }
+h2 { font-size: 17px; margin: 0 0 8px; }
+p { margin: 0 0 10px; }
+.mut { color: var(--mut); font-size: 14px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-top: 14px; }
+.btn { display: block; width: 100%; text-align: center; padding: 14px; border-radius: 10px; border: 0; background: var(--acc); color: #fff; font-size: 17px; font-weight: 600; text-decoration: none; cursor: pointer; margin-top: 10px; }
+.btn.ghost { background: transparent; color: var(--fg); border: 1px solid var(--line); font-weight: 500; }
+ol { margin: 0; padding-left: 20px; }
+li { margin-bottom: 6px; }
+.qr { display: grid; place-items: center; margin-top: 8px; }
+.qr svg { width: min(220px, 70vw); height: auto; background: #fff; border-radius: 8px; padding: 6px; }
+.warn { border-color: #d29922; }
+[hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Gelecek IPTV</h1>
+  <p class="mut" id="lead">Sana bir IPTV listesi gönderildi. Aşağıdan tek dokunuşla ekle.</p>
+
+  <div class="card warn" id="noCode" hidden>
+    <h2>Bağlantı eksik</h2>
+    <p>Bu sayfa bir liste bağlantısıyla açılmadı. Mesajdaki bağlantının <b>tamamına</b> dokun ya da gönderen kişiden yeniden iste.</p>
+  </div>
+
+  <div class="card" id="open">
+    <h2>1. Programı açıp listeyi ekle</h2>
+    <p class="mut" id="openHint">Gelecek IPTV bu cihazda kuruluysa açılır ve “Liste eklensin mi?” diye sorar; <b>Ekle</b>'ye bas.</p>
+    <a class="btn" id="btnOpen" href="#">Gelecek IPTV'de aç</a>
+    <button class="btn ghost" id="btnCopy" type="button">Bağlantıyı kopyala</button>
+    <p class="mut" style="margin-top:10px">Açılmazsa: programda <b>Listeler → Bağlantıyla</b> sekmesine bu bağlantıyı yapıştır.</p>
+  </div>
+
+  <div class="card" id="dl">
+    <h2>2. Program kurulu değilse indir</h2>
+    <a class="btn" id="dlWin" href="https://github.com/gelecek69/gelecek-iptv-surumler/releases/latest">Windows için indir</a>
+    <a class="btn" id="dlApk" href="https://github.com/gelecek69/gelecek-iptv-surumler/releases/latest/download/GelecekIPTV.apk">Android / Android TV için indir (APK)</a>
+    <p class="mut" style="margin-top:10px" id="dlHint">Kurduktan sonra bu sayfaya geri dön ve <b>Gelecek IPTV'de aç</b>'a bas.</p>
+    <p class="mut" id="iosHint" hidden>iPhone / iPad sürümü henüz yok. Listeyi bir Android telefona, Android TV'ye ya da Windows bilgisayara ekleyebilirsin.</p>
+  </div>
+
+  <div class="card">
+    <h2>Android TV'ye eklemek için</h2>
+    <ol>
+      <li>TV'de Gelecek IPTV'yi aç: <b>Listeler → Bağlantıyla → Telefondan gönder</b>.</li>
+      <li>TV'de çıkan QR kodu telefonun kamerasıyla okut (telefon ve TV aynı Wi-Fi'da olsun).</li>
+      <li>Açılan sayfaya bu bağlantıyı yapıştır, <b>Gönder</b>'e bas. TV'de <b>Ekle</b>'ye bas.</li>
+    </ol>
+  </div>
+
+  <div class="card" id="qrCard" hidden>
+    <h2>Başka cihazda açmak için</h2>
+    <p class="mut">Bu sayfayı telefonda açmak için kamerayla okut.</p>
+    <div class="qr" id="qr"></div>
+  </div>
+
+  <p class="mut" style="margin-top:18px">Bağlantıdaki liste bilgisi yalnız senin cihazında açılır; bu sayfa onu hiçbir yere göndermez.</p>
+</main>
+<script src="lib/qrcode.js"></script>
+<script>
+(function () {
+  var m = location.hash.match(/(g[12]\.[A-Za-z0-9_-]{8,})/), code = m && m[1];
+  var ua = navigator.userAgent, isAndroid = /Android/i.test(ua), isIOS = /iPhone|iPad|iPod/i.test(ua) || (/Macintosh/.test(ua) && 'ontouchend' in document), isWin = /Windows/i.test(ua);
+  var $ = function (id) { return document.getElementById(id); };
+  var APK = 'https://github.com/gelecek69/gelecek-iptv-surumler/releases/latest/download/GelecekIPTV.apk';
+  if (!code) { $('noCode').hidden = false; $('open').hidden = true; $('lead').textContent = 'Gelecek IPTV: Windows, Android ve Android TV için IPTV oynatıcı.'; }
+  var link = code ? 'gelecekiptv://ekle?c=' + code : '#';
+  if (isAndroid && code) link = 'intent://ekle?c=' + code + '#Intent;scheme=gelecekiptv;package=com.gelecek.iptv;S.browser_fallback_url=' + encodeURIComponent(APK) + ';end';
+  $('btnOpen').href = link;
+  if (isIOS) { $('iosHint').hidden = false; $('dlWin').hidden = $('dlApk').hidden = $('dlHint').hidden = true; $('btnOpen').hidden = true; $('openHint').textContent = 'iPhone sürümü henüz yok.'; }
+  else if (isAndroid) { $('dlWin').hidden = true; $('dlApk').parentNode.insertBefore($('dlApk'), $('dlWin')); $('dlHint').innerHTML = 'APK inince aç, “Bilinmeyen kaynaklara izin ver” de ve kur. Sonra bu sayfaya dön, <b>Gelecek IPTV\'de aç</b>\'a bas.'; }
+  else if (isWin) { $('dlApk').classList.add('ghost'); }
+  $('btnCopy').onclick = function () {
+    var t = location.href, b = this;
+    var done = function () { b.textContent = 'Kopyalandı ✓'; setTimeout(function () { b.textContent = 'Bağlantıyı kopyala'; }, 2000); };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(done, fb); else fb();
+    function fb() { var a = document.createElement('textarea'); a.value = t; document.body.appendChild(a); a.select(); try { document.execCommand('copy'); } catch (e) {} a.remove(); done(); }
+  };
+  // Windows: son sürümün kurulum dosyasını bul (bulunamazsa sürümler sayfası açılır)
+  try {
+    fetch('https://api.github.com/repos/gelecek69/gelecek-iptv-surumler/releases/latest').then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
+      var a = j && (j.assets || []).find(function (x) { return /Kurulum.*\.exe$/i.test(x.name); });
+      if (a) { $('dlWin').href = a.browser_download_url; $('dlWin').textContent = 'Windows için indir (' + j.tag_name + ', ' + (a.size / 1e6).toFixed(0) + ' MB)'; }
+    }).catch(function () {});
+  } catch (e) {}
+  // Bilgisayarda açıldıysa: telefona geçmek için QR
+  if (code && !isAndroid && !isIOS && window.qrcode) {
+    try { var q = qrcode(0, 'M'); q.addData(location.href); q.make(); $('qr').innerHTML = q.createSvgTag({ cellSize: 4, margin: 3, scalable: true }); $('qrCard').hidden = false; } catch (e) {}
+  }
+})();
+</script>
+</body>
+</html>
