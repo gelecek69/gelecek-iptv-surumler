@@ -47,7 +47,7 @@ li { margin-bottom: 6px; }
   </div>
 
   <div class="card" id="dl">
-    <h2>2. Program kurulu değilse indir</h2>
+    <h2 id="dlTitle">2. Program kurulu değilse indir</h2>
     <a class="btn" id="dlWin" href="https://github.com/gelecek69/gelecek-iptv-surumler/releases/latest">Windows için indir</a>
     <a class="btn" id="dlApk" href="https://github.com/gelecek69/gelecek-iptv-surumler/releases/latest/download/GelecekIPTV.apk">Android / Android TV için indir (APK)</a>
     <p class="mut" style="margin-top:10px" id="dlHint">Kurduktan sonra bu sayfaya geri dön ve <b>Gelecek IPTV'de aç</b>'a bas.</p>
@@ -78,7 +78,7 @@ li { margin-bottom: 6px; }
   var ua = navigator.userAgent, isAndroid = /Android/i.test(ua), isIOS = /iPhone|iPad|iPod/i.test(ua) || (/Macintosh/.test(ua) && 'ontouchend' in document), isWin = /Windows/i.test(ua);
   var $ = function (id) { return document.getElementById(id); };
   var APK = 'https://github.com/gelecek69/gelecek-iptv-surumler/releases/latest/download/GelecekIPTV.apk';
-  if (!code) { $('noCode').hidden = false; $('open').hidden = true; $('lead').textContent = 'Gelecek IPTV: Windows, Android ve Android TV için IPTV oynatıcı.'; }
+  if (!code) { $('noCode').hidden = false; $('open').hidden = true; $('lead').textContent = 'Gelecek IPTV: Windows, Android ve Android TV için IPTV oynatıcı.'; $('dlTitle').textContent = 'Programı indir'; $('dlHint').hidden = true; }
   var link = code ? 'gelecekiptv://ekle?c=' + code : '#';
   if (isAndroid && code) link = 'intent://ekle?c=' + code + '#Intent;scheme=gelecekiptv;package=com.gelecek.iptv;S.browser_fallback_url=' + encodeURIComponent(APK) + ';end';
   $('btnOpen').href = link;
