@@ -1,4 +1,4 @@
-<script>window.__tvBuilt="2.1.25";</script>
+<script>window.__tvBuilt="2.1.26";</script>
 <title>Gelecek IPTV</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -567,6 +567,7 @@ html.is-android body.ui2 .home, html.is-android body.ui2 .rundown { grid-column:
       <button type="button" data-hl="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>Arama</button>
       <button type="button" data-hl="settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>Ayarlar</button>
       <button type="button" data-hl="devices"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="2" y="4" width="14" height="10" rx="1.5"/><path d="M6 18h6"/><rect x="17" y="8" width="5" height="12" rx="1"/></svg>Cihazlarım</button>
+      <button type="button" data-hl="remote" id="hlRemote" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="7" y="2" width="10" height="20" rx="3"/><circle cx="12" cy="9" r="2.2"/><path d="M10 15h.01M14 15h.01M12 18h.01"/></svg>Telefon kumandası</button>
     </div>
     <div class="h-acc"><div class="h-pl" id="hPl"></div><small id="hAcc"></small></div>
   </nav>
@@ -766,6 +767,15 @@ html.is-android body.ui2 .home, html.is-android body.ui2 .rundown { grid-column:
     <div class="share-qr" id="rcvQr"></div>
     <p class="hint" id="rcvUrl" style="text-align:center"></p>
     <div class="row-actions"><button class="btn" type="button" id="rcvClose">Kapat</button></div>
+  </div>
+</div>
+<div class="modal" id="rmtDlg" hidden>
+  <div class="sheet share-sheet" role="dialog" aria-modal="true" aria-labelledby="rmtTitle">
+    <h2 id="rmtTitle">Telefonu kumanda yap</h2>
+    <p class="hint">Telefonun kamerasıyla QR kodu okut, açılan sayfa kumanda olur. Telefon ile bu cihaz <b>aynı Wi-Fi'da</b> olsun. Bir kere eşleşmek yeter: telefondaki sayfayı ana ekrana eklersen sonra doğrudan açılır.</p>
+    <div class="share-qr" id="rmtQr"></div>
+    <p class="hint" id="rmtInfo" style="text-align:center"></p>
+    <div class="row-actions" style="justify-content:space-between"><button class="btn ghost" type="button" id="rmtNew">Yeni kod (eski telefonlar bağlanamaz)</button><button class="btn" type="button" id="rmtClose">Kapat</button></div>
   </div>
 </div>
 <div class="modal" id="updDlg" hidden>
@@ -4853,6 +4863,106 @@ function relayPoll(code, topic, key) {
 }
 if (TIZEN) { $('btnRcv').hidden = false; $('btnRcv').onclick = relayStart; }
 
+/* --- Telefonu kumanda yap (TV ve Windows): telefon kumanda.html'i açar; eşleşme iletileri kodla şifrelenip
+   ntfy.sh kutusundan geçer (yalnız bağlanırken 2 ileti), tuşlar sonra doğrudan telefon → cihaz (WebRTC, aynı ağ) gider. --- */
+var RMT_PAGE = (window.GELECEK_CONFIG && GELECEK_CONFIG.remotePage) || 'https://gelecek69.github.io/gelecek-iptv-surumler/kumanda.html';
+var RMT_OK = !!((TIZEN || DESKTOP) && window.RTCPeerConnection && window.EventSource && CAN_LOCK);
+var rmt = { es: null, pcs: {}, code: '', key: null, topic: '' };
+function rmtKey(code, use) {
+  return crypto.subtle.importKey('raw', u8(code), 'PBKDF2', false, ['deriveKey']).then(function (k) {
+    return crypto.subtle.deriveKey({ name: 'PBKDF2', salt: u8('gelecek-kumanda'), iterations: 100000, hash: 'SHA-256' }, k, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+  });
+}
+function rmtSeal(key, obj) {
+  var iv = crypto.getRandomValues(new Uint8Array(12));
+  return crypto.subtle.encrypt({ name: 'AES-GCM', iv: iv }, key, u8(JSON.stringify(obj))).then(function (ct) { var c = new Uint8Array(ct), a = new Uint8Array(12 + c.length); a.set(iv, 0); a.set(c, 12); return b64u(a); });
+}
+function rmtOpen(key, txt) {
+  var a = unb64u(String(txt).trim());
+  return crypto.subtle.decrypt({ name: 'AES-GCM', iv: a.slice(0, 12) }, key, a.slice(12)).then(function (pt) { return JSON.parse(str8(new Uint8Array(pt))); });
+}
+function rmtStart() {
+  if (!RMT_OK) return;
+  var code = lsGet('rmtCode', ''); if (!code) { code = relayNewCode(); lsSet('rmtCode', code); }
+  if (rmt.es && rmt.code === code) return;
+  if (rmt.es) { try { rmt.es.close(); } catch (e) {} }
+  rmt.code = code;
+  Promise.all([relayTopic('kumanda:' + code), rmtKey(code)]).then(function (r) {
+    if (rmt.code !== code) return;
+    rmt.topic = r[0]; rmt.key = r[1];
+    var es = rmt.es = new EventSource(RELAY + rmt.topic + '/sse?since=' + (Math.floor(Date.now() / 1000) - 30));
+    es.onmessage = function (ev) {
+      var m; try { m = JSON.parse(ev.data); } catch (e) { return; }
+      if (!m || m.event !== 'message' || !m.message) return;
+      rmtOpen(rmt.key, m.message).then(function (o) { if (o && o.t === 'offer' && o.id && o.sdp && !rmt.pcs[o.id]) rmtAnswer(o); }, function () {});
+    };
+  });
+}
+function rmtGather(pc) {
+  return new Promise(function (res) {
+    if (pc.iceGatheringState === 'complete') return res();
+    var t = setTimeout(res, 2500);
+    pc.addEventListener('icegatheringstatechange', function () { if (pc.iceGatheringState === 'complete') { clearTimeout(t); res(); } });
+  });
+}
+function rmtAnswer(o) {
+  var ice = (window.__rmtIce !== undefined) ? window.__rmtIce : [{ urls: 'stun:stun.l.google.com:19302' }];
+  var pc = new RTCPeerConnection({ iceServers: ice }); rmt.pcs[o.id] = pc;
+  pc.ondatachannel = function (ev) {
+    var dc = ev.channel;
+    dc.onopen = function () { toast('📱 Telefon kumandası bağlandı'); if (!$('rmtDlg').hidden) $('rmtDlg').hidden = true; };
+    dc.onmessage = function (e) { var x; try { x = JSON.parse(e.data); } catch (er) { return; } rmtDo(x, dc); };
+    dc.onclose = function () { delete rmt.pcs[o.id]; };
+  };
+  pc.onconnectionstatechange = function () { if (pc.connectionState === 'failed' || pc.connectionState === 'closed') { delete rmt.pcs[o.id]; try { pc.close(); } catch (e) {} } };
+  pc.setRemoteDescription({ type: 'offer', sdp: o.sdp }).then(function () { return pc.createAnswer(); }).then(function (a) { return pc.setLocalDescription(a); })
+    .then(function () { return rmtGather(pc); })
+    .then(function () { return rmtSeal(rmt.key, { t: 'answer', id: o.id, sdp: pc.localDescription.sdp, name: TIZEN ? 'Samsung TV' : 'Bilgisayar' }); })
+    .then(function (body) { return fetch(RELAY + rmt.topic, { method: 'POST', body: body }); })
+    .catch(function () { delete rmt.pcs[o.id]; });
+}
+// telefondan gelen tuş → bu cihazda gerçek tuşa basılmış gibi
+var RMT_KEYS = { up: [38, 'ArrowUp'], down: [40, 'ArrowDown'], left: [37, 'ArrowLeft'], right: [39, 'ArrowRight'], ok: [13, 'Enter'],
+  back: [TIZEN ? 10009 : 8, TIZEN ? 'XF86Back' : 'Backspace'], chup: [TIZEN ? 427 : 33, TIZEN ? 'ChannelUp' : 'PageUp'], chdown: [TIZEN ? 428 : 34, TIZEN ? 'ChannelDown' : 'PageDown'],
+  red: [403, 'ColorF0Red'], green: [404, 'ColorF1Green'], yellow: [405, 'ColorF2Yellow'], blue: [406, 'ColorF3Blue'],
+  play: [TIZEN ? 10252 : 32, TIZEN ? 'MediaPlayPause' : ' '], ff: [TIZEN ? 417 : 39, TIZEN ? 'MediaFastForward' : 'ArrowRight'], rw: [TIZEN ? 412 : 37, TIZEN ? 'MediaRewind' : 'ArrowLeft'], info: [TIZEN ? 457 : 73, TIZEN ? 'Info' : 'i'] };
+function rmtKeyPress(code, key) {
+  var t = document.activeElement && document.activeElement !== document.body ? document.activeElement : document.body;
+  var e = new KeyboardEvent('keydown', { key: key, bubbles: true, cancelable: true });
+  try { Object.defineProperty(e, 'keyCode', { get: function () { return code; } }); Object.defineProperty(e, 'which', { get: function () { return code; } }); } catch (x) {}
+  t.dispatchEvent(e);
+  // kumandada OK: tarayıcı düğmeye kendisi basmaz (yapay tuş) → biz basarız
+  if (code === 13 && !e.defaultPrevented && t !== document.body && (t.tagName === 'BUTTON' || t.tagName === 'A' || t.tagName === 'SUMMARY' || (t.tagName === 'INPUT' && /checkbox|radio/.test(t.type)))) t.click();
+}
+function rmtDo(x, dc) {
+  if (x.k === 'home') {
+    if (TIZEN && TIZEN.isOpen && TIZEN.isOpen()) TIZEN.close();
+    document.querySelectorAll('.modal').forEach(function (m) { if (!m.hidden && m.id !== 'rmtDlg') m.hidden = true; });
+    if (UI2) goHome(); return;
+  }
+  if (/^[0-9]$/.test(x.k || '')) return rmtKeyPress(48 + +x.k, x.k);
+  if (x.k && RMT_KEYS[x.k]) return rmtKeyPress(RMT_KEYS[x.k][0], RMT_KEYS[x.k][1]);
+  if (typeof x.text === 'string') {
+    var a = document.activeElement, inp = a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA') && !/checkbox|radio|file/.test(a.type) ? a : null;
+    if (!inp) { inp = UI2 && uiMode === 'home' ? $('hq') : $('q'); if (UI2 && uiMode === 'home') { goList('all'); inp = $('q'); } inp.focus(); }
+    inp.value = x.text; inp.dispatchEvent(new Event('input', { bubbles: true }));
+    if (x.enter) rmtKeyPress(13, 'Enter');
+    return;
+  }
+  if (x.t === 'ping' && dc) { try { dc.send(JSON.stringify({ t: 'pong' })); } catch (e) {} }
+}
+function rmtShow() {
+  if (!RMT_OK) return toast('Bu cihaz telefon kumandasını desteklemiyor.');
+  rmtStart();
+  var code = lsGet('rmtCode', ''), url = RMT_PAGE + '#' + code;
+  $('rmtInfo').innerHTML = 'Kod: <b class="rcv-code">' + code.slice(0, 4) + '-' + code.slice(4) + '</b><br><small>QR okumazsa telefonda aç: ' + esc(RMT_PAGE.replace(/^https:\/\//, '')) + '</small>';
+  $('rmtDlg').hidden = false; qrInto($('rmtQr'), url); $('rmtClose').focus();
+}
+$('rmtClose').onclick = function () { $('rmtDlg').hidden = true; };
+$('rmtNew').onclick = function () { lsSet('rmtCode', ''); if (rmt.es) { try { rmt.es.close(); } catch (e) {} rmt.es = null; } rmt.code = ''; for (var k in rmt.pcs) { try { rmt.pcs[k].close(); } catch (e) {} } rmt.pcs = {}; rmtShow(); toast('Yeni kod: eski eşleşmeler silindi'); };
+$('hlRemote').hidden = !RMT_OK;
+if (RMT_OK && lsGet('rmtCode', '')) setTimeout(rmtStart, 3000);   // daha önce eşleştiyse açılışta dinlemeye başla
+
 
 /* ================= yeni görünüm (ui2) =================
    Yalnız görünüm değişir: liste, oynatıcı, ayarlar, ses eşitleme, altyazı, favoriler, paylaşma aynı kod ve aynı
@@ -4990,6 +5100,7 @@ $('home').addEventListener('click', function (e) {
   else if (a === 'groups') { goList(kind === 'all' ? 'live' : kind); grpPanel(true); }
   else if (a === 'search') { goList('all'); $('q').focus(); }
   else if (a === 'settings' || a === 'devices') openModal();
+  else if (a === 'remote') rmtShow();
 });
 $('u2Back').onclick = function () { uiBack(); };
 $('grpClose2').onclick = function () { grpPanel(false); };

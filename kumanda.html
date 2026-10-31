@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#081120">
+<title>Gelecek Kumanda</title>
+<meta name="description" content="Gelecek IPTV: telefonu TV ve bilgisayar için kumanda yap">
+<style>
+:root { --bg: #081120; --panel: #0d1b30; --key: #12253f; --line: #1c3354; --fg: #e8eef6; --muted: #8fa3bd; --tally: #ff9f1c; --ok: #3cb371; --err: #ff6b6b; }
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; user-select: none; -webkit-user-select: none; }
+main { max-width: 440px; margin: 0 auto; padding: 14px 16px 28px; }
+header { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+h1 { font-size: 18px; margin: 0; }
+h1 b { color: var(--tally); }
+#st { font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+#st i { width: 9px; height: 9px; border-radius: 50%; background: var(--err); display: inline-block; }
+#st.on i { background: var(--ok); }
+#st.wait i { background: var(--tally); }
+.pair { margin-top: 14px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px; }
+.pair label { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.pair input { width: 100%; margin-top: 6px; background: var(--bg); color: var(--fg); border: 1px solid var(--line); border-radius: 10px; padding: 10px; font: 700 22px/1.2 ui-monospace, Menlo, Consolas, monospace; letter-spacing: .14em; text-align: center; text-transform: uppercase; }
+.pair button, .row button, .txt button { font-family: inherit; }
+.btn { margin-top: 10px; width: 100%; background: var(--tally); color: #1a1205; border: 0; border-radius: 10px; padding: 12px; font-weight: 700; font-size: 16px; }
+.hint { color: var(--muted); font-size: 13px; margin: 8px 0 0; }
+.pad { position: relative; width: min(300px, 82vw); aspect-ratio: 1; margin: 22px auto 10px; border-radius: 50%; background: var(--panel); border: 1px solid var(--line); }
+.pad button { position: absolute; background: none; border: 0; color: var(--fg); font-size: 28px; width: 33%; height: 33%; border-radius: 50%; }
+.pad button:active, .row button:active, .nums button:active { background: rgba(255,159,28,.25); }
+.pad .u { left: 33.5%; top: 0; } .pad .d { left: 33.5%; bottom: 0; } .pad .l { left: 0; top: 33.5%; } .pad .r { right: 0; top: 33.5%; }
+.pad .ok { left: 27%; top: 27%; width: 46%; height: 46%; background: var(--key); border: 2px solid var(--tally); font-size: 20px; font-weight: 700; }
+.row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 12px; }
+.row button { background: var(--key); color: var(--fg); border: 1px solid var(--line); border-radius: 12px; padding: 14px 6px; font-size: 15px; font-weight: 600; }
+.row.c4 { grid-template-columns: repeat(4, 1fr); }
+.row .red { background: #c43c3c; border: 0; } .row .green { background: #2e9b5f; border: 0; } .row .yellow { background: #d9a520; border: 0; color: #1a1205; } .row .blue { background: #2d6fd1; border: 0; }
+.nums { display: none; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; }
+.nums.on { display: grid; }
+.nums button { background: var(--key); color: var(--fg); border: 1px solid var(--line); border-radius: 10px; padding: 12px; font-size: 20px; font-weight: 600; }
+.txt { display: flex; gap: 8px; margin-top: 14px; }
+.txt input { flex: 1; min-width: 0; background: var(--panel); color: var(--fg); border: 1px solid var(--line); border-radius: 10px; padding: 12px; font: inherit; }
+.txt button { background: var(--tally); color: #1a1205; border: 0; border-radius: 10px; padding: 0 16px; font-weight: 700; }
+#ctl[hidden], #pair[hidden] { display: none; }
+.foot { color: var(--muted); font-size: 12px; margin-top: 18px; text-align: center; }
+.foot a { color: var(--muted); }
+</style>
+</head>
+<body>
+<main>
+  <header><h1>Gelecek <b>Kumanda</b></h1><span id="st"><i></i><span id="stT">Bağlı değil</span></span></header>
+
+  <div class="pair" id="pair">
+    <label for="code">TV'deki / bilgisayardaki kod</label>
+    <input id="code" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="9" placeholder="ABCD-1234">
+    <button class="btn" id="go" type="button">Bağlan</button>
+    <p class="hint">Gelecek IPTV'de ana sayfada <b>Telefon kumandası</b>'na bas, çıkan QR kodu okut ya da kodu buraya yaz. Telefon ile cihaz aynı Wi-Fi'da olmalı.</p>
+  </div>
+
+  <div id="ctl" hidden>
+    <div class="pad">
+      <button class="u" data-k="up" aria-label="Yukarı">▲</button>
+      <button class="l" data-k="left" aria-label="Sol">◀</button>
+      <button class="ok" data-k="ok">OK</button>
+      <button class="r" data-k="right" aria-label="Sağ">▶</button>
+      <button class="d" data-k="down" aria-label="Aşağı">▼</button>
+    </div>
+    <div class="row"><button data-k="back">↩ Geri</button><button data-k="home">⌂ Ana sayfa</button><button data-k="play">⏯ Duraklat</button></div>
+    <div class="row"><button data-k="chdown">CH −</button><button data-k="info">ⓘ Bilgi</button><button data-k="chup">CH +</button></div>
+    <div class="row"><button data-k="rw">⏪ Geri sar</button><button id="numT" type="button">123</button><button data-k="ff">İleri sar ⏩</button></div>
+    <div class="nums" id="nums">
+      <button data-k="1">1</button><button data-k="2">2</button><button data-k="3">3</button><button data-k="4">4</button><button data-k="5">5</button><button data-k="6">6</button><button data-k="7">7</button><button data-k="8">8</button><button data-k="9">9</button><button data-k="0" style="grid-column:2">0</button>
+    </div>
+    <div class="row c4"><button class="red" data-k="red" aria-label="Kırmızı: ses / altyazı">●</button><button class="green" data-k="green" aria-label="Yeşil: altyazı">●</button><button class="yellow" data-k="yellow" aria-label="Sarı: ekran">●</button><button class="blue" data-k="blue" aria-label="Mavi">●</button></div>
+    <p class="hint" style="text-align:center">Kırmızı: ses / altyazı · Yeşil: altyazı aç-kapa · Sarı: ekran oranı</p>
+    <div class="txt"><input id="tx" placeholder="Ara ya da yaz (kanal, film…)" autocomplete="off" enterkeyhint="search"><button id="txGo" type="button">Gönder</button></div>
+  </div>
+  <p class="foot">Eşleşme iletileri kodla şifrelenir; tuşlar doğrudan telefon ile cihaz arasında gider. <a href="#" id="unpair">Eşleşmeyi unut</a></p>
+</main>
+<script>
+(function () {
+  var q = new URLSearchParams(location.search), RELAY = q.get('relay') || 'https://ntfy.sh/';
+  var ICE = q.get('noice') ? [] : [{ urls: 'stun:stun.l.google.com:19302' }];
+  var $ = function (id) { return document.getElementById(id); };
+  function clean(c) { return String(c || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8); }
+  function fmt(c) { c = clean(c); return c.length > 4 ? c.slice(0, 4) + '-' + c.slice(4) : c; }
+  function ls(k, v) { try { if (v === undefined) return localStorage.getItem(k); if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) { return null; } }
+  function u8(s) { return new TextEncoder().encode(s); }
+  function b64u(a) { var b = ''; for (var i = 0; i < a.length; i++) b += String.fromCharCode(a[i]); return btoa(b).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); }
+  function unb64u(s) { s = s.replace(/-/g, '+').replace(/_/g, '/'); while (s.length % 4) s += '='; var b = atob(s), a = new Uint8Array(b.length); for (var i = 0; i < b.length; i++) a[i] = b.charCodeAt(i); return a; }
+  function st(cls, t) { $('st').className = cls; $('stT').textContent = t; }
+  function topicOf(code) { return crypto.subtle.digest('SHA-256', u8('gelecek-tv-konu:kumanda:' + code)).then(function (h) { return 'gelecekiptv_' + Array.prototype.map.call(new Uint8Array(h).slice(0, 12), function (x) { return (x < 16 ? '0' : '') + x.toString(16); }).join(''); }); }
+  function keyOf(code) { return crypto.subtle.importKey('raw', u8(code), 'PBKDF2', false, ['deriveKey']).then(function (k) { return crypto.subtle.deriveKey({ name: 'PBKDF2', salt: u8('gelecek-kumanda'), iterations: 100000, hash: 'SHA-256' }, k, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']); }); }
+  function seal(key, o) { var iv = crypto.getRandomValues(new Uint8Array(12)); return crypto.subtle.encrypt({ name: 'AES-GCM', iv: iv }, key, u8(JSON.stringify(o))).then(function (ct) { var c = new Uint8Array(ct), a = new Uint8Array(12 + c.length); a.set(iv, 0); a.set(c, 12); return b64u(a); }); }
+  function open(key, t) { var a = unb64u(String(t).trim()); return crypto.subtle.decrypt({ name: 'AES-GCM', iv: a.slice(0, 12) }, key, a.slice(12)).then(function (pt) { return JSON.parse(new TextDecoder().decode(pt)); }); }
+
+  var pc = null, dc = null, es = null, tries = 0, timer = 0;
+  function send(o) { if (dc && dc.readyState === 'open') { dc.send(JSON.stringify(o)); if (navigator.vibrate) navigator.vibrate(12); } else connect(); }
+  function cleanup() { try { es && es.close(); } catch (e) {} try { dc && dc.close(); } catch (e) {} try { pc && pc.close(); } catch (e) {} es = dc = pc = null; clearTimeout(timer); }
+  function connect() {
+    var code = clean($('code').value || ls('kmCode'));
+    if (code.length !== 8) { $('pair').hidden = false; $('ctl').hidden = true; st('', 'Bağlı değil'); return; }
+    if (!window.RTCPeerConnection || !crypto.subtle) { st('', 'Bu tarayıcı desteklemiyor'); return; }
+    if (pc && (pc.connectionState === 'connecting' || pc.connectionState === 'new')) return;
+    cleanup(); ls('kmCode', code); $('code').value = fmt(code);
+    st('wait', 'Bağlanıyor…');
+    var id = Math.random().toString(36).slice(2, 10);
+    Promise.all([topicOf(code), keyOf(code)]).then(function (r) {
+      var topic = r[0], key = r[1];
+      pc = new RTCPeerConnection({ iceServers: ICE });
+      dc = pc.createDataChannel('kumanda');
+      dc.onopen = function () { tries = 0; clearTimeout(timer); st('on', 'Bağlı'); $('pair').hidden = true; $('ctl').hidden = false; try { es && es.close(); } catch (e) {} };
+      dc.onclose = function () { st('', 'Bağlantı koptu — bir tuşa basınca yeniden bağlanır'); };
+      pc.onconnectionstatechange = function () { if (pc && pc.connectionState === 'failed') st('', 'Bağlanamadı — aynı Wi-Fi\'da mısınız?'); };
+      es = new EventSource(RELAY + topic + '/sse?since=' + (Math.floor(Date.now() / 1000) - 5));
+      es.onmessage = function (ev) {
+        var m; try { m = JSON.parse(ev.data); } catch (e) { return; }
+        if (!m || m.event !== 'message' || !m.message) return;
+        open(key, m.message).then(function (o) { if (o && o.t === 'answer' && o.id === id && pc && !pc.currentRemoteDescription) { pc.setRemoteDescription({ type: 'answer', sdp: o.sdp }); st('wait', 'Bağlanıyor… (' + (o.name || 'cihaz') + ')'); } }, function () {});
+      };
+      return pc.createOffer().then(function (of) { return pc.setLocalDescription(of); }).then(function () {
+        return new Promise(function (res) { if (pc.iceGatheringState === 'complete') return res(); var t = setTimeout(res, 2500); pc.addEventListener('icegatheringstatechange', function () { if (pc.iceGatheringState === 'complete') { clearTimeout(t); res(); } }); });
+      }).then(function () { return seal(key, { t: 'offer', id: id, sdp: pc.localDescription.sdp }); })
+        .then(function (body) { return fetch(RELAY + topic, { method: 'POST', body: body }); })
+        .then(function () {
+          timer = setTimeout(function () {
+            if (dc && dc.readyState === 'open') return;
+            st('', 'Cihaz yanıt vermedi — Gelecek IPTV açık mı, kod doğru mu?');
+            $('pair').hidden = false;
+          }, 15000);
+        });
+    }).catch(function (e) { st('', 'Bağlanamadı (' + e.message + ')'); $('pair').hidden = false; });
+  }
+  var h = clean(decodeURIComponent(location.hash.slice(1)));
+  if (h) { $('code').value = fmt(h); ls('kmCode', h); history.replaceState(null, '', location.pathname + location.search); }
+  else if (ls('kmCode')) $('code').value = fmt(ls('kmCode'));
+  $('code').addEventListener('input', function () { var v = fmt(this.value); if (v !== this.value) this.value = v; });
+  $('go').onclick = connect;
+  document.querySelectorAll('[data-k]').forEach(function (b) {
+    b.addEventListener('click', function (e) { e.preventDefault(); send({ k: b.dataset.k }); });
+  });
+  $('numT').onclick = function () { $('nums').classList.toggle('on'); };
+  function sendText(enter) { var v = $('tx').value; send({ text: v, enter: !!enter }); }
+  $('txGo').onclick = function () { sendText(true); };
+  $('tx').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); sendText(true); } });
+  $('unpair').onclick = function (e) { e.preventDefault(); ls('kmCode', null); cleanup(); $('code').value = ''; $('pair').hidden = false; $('ctl').hidden = true; st('', 'Bağlı değil'); };
+  document.addEventListener('visibilitychange', function () { if (!document.hidden && !(dc && dc.readyState === 'open') && ls('kmCode')) connect(); });
+  if (ls('kmCode')) connect();
+})();
+</script>
+</body>
+</html>
