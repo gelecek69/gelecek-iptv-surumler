@@ -1,4 +1,4 @@
-<script>window.__tvBuilt="2.1.30";</script>
+<script>window.__tvBuilt="2.1.31";</script>
 <title>Gelecek IPTV</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -950,7 +950,10 @@ html.is-android body.ui2 .home, html.is-android body.ui2 .rundown { grid-column:
   /* ---------- yayın biçimi (Xtream canlı): Otomatik / HLS / TS — kırmızı menüden ---------- */
   var FMT = 'auto'; try { FMT = localStorage.getItem('tz_fmt') || 'auto'; } catch (e) {}
   var FMTS = [['auto', 'Otomatik'], ['hls', 'HLS (.m3u8)'], ['ts', 'TS (.ts)']];
-  function xtLive(c) { return c && !isVod(c) && /\/live\/[^/]+\/[^/]+\/\d+\.ts(\?|$)/.test(c.url || ''); }
+  // Xtream canlı kanal adresi: /live/kullanıcı/şifre/123.ts — M3U (get.php) listelerinde çoğu zaman uzantısız /kullanıcı/şifre/123 gelir
+  var XT_RE = /^(https?:\/\/[^/]+)\/(?:live\/)?([^/?#]+)\/([^/?#]+)\/(\d+)(?:\.(?:ts|m3u8))?(\?.*)?$/i;
+  function xtLive(c) { return !!(c && !isVod(c) && c.url && XT_RE.test(c.url) && !/\/(movie|series)\//i.test(c.url)); }
+  function xtUrl(c, ext) { var m = c.url.match(XT_RE); return m[1] + '/live/' + m[2] + '/' + m[3] + '/' + m[4] + '.' + ext + (m[5] || ''); }
   function techLine(c) {
     var bits = [];
     if (xtLive(c)) bits.push(c._hlsTry ? 'HLS' : 'TS');
@@ -991,7 +994,7 @@ html.is-android body.ui2 .home, html.is-android body.ui2 .rundown { grid-column:
     try {
       // Canlı .ts yayınları Samsung oynatıcısında takılabiliyor: Xtream'de aynı kanalın HLS (.m3u8) hali denenir, olmazsa .ts
       var url = c.url, hls = xtLive(c) && (FMT === 'hls' || (FMT === 'auto' && !c._tsOnly));
-      if (hls) url = url.replace(/\.ts(\?|$)/, '.m3u8$1');
+      if (xtLive(c)) url = xtUrl(c, hls ? 'm3u8' : 'ts');   // uzantısız adreste de biçim açıkça belli olsun (Samsung oynatıcısı tahmin etmesin)
       c._hlsTry = hls;
       av.open(url);
       av.setListener({
