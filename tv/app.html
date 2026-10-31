@@ -1,4 +1,4 @@
-<script>window.__tvBuilt="2.1.28";</script>
+<script>window.__tvBuilt="2.1.29";</script>
 <title>Gelecek IPTV</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -1250,11 +1250,33 @@ html.is-android body.ui2 .home, html.is-android body.ui2 .rundown { grid-column:
   }
   window.__tzMove = moveFocus;
   var DIR = { 37: 'l', 38: 'u', 39: 'r', 40: 'd' };
+  // Yazı kutusunun üstüne gelince klavye açılmasın: kutu "salt okunur" odaklanır (TV klavyesi açılmaz);
+  // OK'ye basınca yazılabilir olur ve klavye açılır. Kutudan çıkınca eski haline döner.
+  function isText(t) { return t && ((t.tagName === 'INPUT' && !/^(checkbox|radio|file|range|button|submit|color)$/i.test(t.type || '')) || t.tagName === 'TEXTAREA'); }
+  document.addEventListener('focusin', function (e) {
+    var t = e.target; if (!isText(t) || t._tzTyping || t.readOnly) return;
+    t._tzRO = true; t.readOnly = true;
+  }, true);
+  document.addEventListener('focusout', function (e) {
+    var t = e.target; if (!isText(t)) return;
+    if (t._tzRO) { t.readOnly = false; t._tzRO = false; }
+    t._tzTyping = false;
+  }, true);
+  function startTyping(t) {
+    try { t.blur(); } catch (x) {}
+    t._tzRO = false; t.readOnly = false; t._tzTyping = true;
+    t.focus();   // yeniden odak: TV klavyesi şimdi açılır
+    try { var n = (t.value || '').length; t.setSelectionRange(n, n); } catch (x) {}
+  }
+  window.__tzStartTyping = startTyping;
+  document.addEventListener('click', function (e) { var t = e.target; if (isText(t) && t._tzRO) startTyping(t); }, true);   // işaretçiyle tıklayınca da yazılır
   document.addEventListener('keydown', function (e) {
     if (open) return;
     var t = e.target, tag = t && t.tagName, k = e.keyCode;
     if (tag !== 'INPUT' && tag !== 'TEXTAREA' && tag !== 'SELECT') return;
+    if (k === K.ENTER && t._tzRO && !e.__rmt) { e.preventDefault(); e.stopPropagation(); startTyping(t); return; }   // telefon kumandasından gelen OK klavye açmaz (yazı telefondan gelir)
     if (k === K.UP || k === K.DOWN) { e.preventDefault(); e.stopPropagation(); moveFocus(t, DIR[k]); }
+    else if (tag === 'INPUT' && t._tzRO && (k === K.LEFT || k === K.RIGHT)) { if (moveFocus(t, DIR[k])) { e.preventDefault(); e.stopPropagation(); } }   // yazmıyorken ◀ ▶ doğrudan yandakine
     else if (tag === 'INPUT' && (k === K.LEFT || k === K.RIGHT)) {
       // imleç yazının başında ◀ / sonunda ▶ ise yandaki kutuya / düğmeye geç
       var a = 0, z = 0, n = (t.value || '').length;
@@ -4951,7 +4973,7 @@ var RMT_KEYS = { up: [38, 'ArrowUp'], down: [40, 'ArrowDown'], left: [37, 'Arrow
   play: [TIZEN ? 10252 : 32, TIZEN ? 'MediaPlayPause' : ' '], ff: [TIZEN ? 417 : 39, TIZEN ? 'MediaFastForward' : 'ArrowRight'], rw: [TIZEN ? 412 : 37, TIZEN ? 'MediaRewind' : 'ArrowLeft'], info: [TIZEN ? 457 : 73, TIZEN ? 'Info' : 'i'] };
 function rmtKeyPress(code, key) {
   var t = document.activeElement && document.activeElement !== document.body ? document.activeElement : document.body;
-  var e = new KeyboardEvent('keydown', { key: key, bubbles: true, cancelable: true });
+  var e = new KeyboardEvent('keydown', { key: key, bubbles: true, cancelable: true }); e.__rmt = true;
   try { Object.defineProperty(e, 'keyCode', { get: function () { return code; } }); Object.defineProperty(e, 'which', { get: function () { return code; } }); } catch (x) {}
   t.dispatchEvent(e);
   // kumandada OK: tarayıcı düğmeye kendisi basmaz (yapay tuş) → biz basarız
