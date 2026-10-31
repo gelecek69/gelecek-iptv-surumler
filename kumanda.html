@@ -94,24 +94,48 @@ h1 b { color: var(--tally); }
   function seal(key, o) { var iv = crypto.getRandomValues(new Uint8Array(12)); return crypto.subtle.encrypt({ name: 'AES-GCM', iv: iv }, key, u8(JSON.stringify(o))).then(function (ct) { var c = new Uint8Array(ct), a = new Uint8Array(12 + c.length); a.set(iv, 0); a.set(c, 12); return b64u(a); }); }
   function open(key, t) { var a = unb64u(String(t).trim()); return crypto.subtle.decrypt({ name: 'AES-GCM', iv: a.slice(0, 12) }, key, a.slice(12)).then(function (pt) { return JSON.parse(new TextDecoder().decode(pt)); }); }
 
-  var pc = null, dc = null, es = null, tries = 0, timer = 0;
-  function send(o) { if (dc && dc.readyState === 'open') { dc.send(JSON.stringify(o)); if (navigator.vibrate) navigator.vibrate(12); } else connect(); }
-  function cleanup() { try { es && es.close(); } catch (e) {} try { dc && dc.close(); } catch (e) {} try { pc && pc.close(); } catch (e) {} es = dc = pc = null; clearTimeout(timer); }
+  var pc = null, dc = null, es = null, tries = 0, timer = 0, relay = null;   // relay: doğrudan bağlantı olmazsa tuşlar kutu üzerinden { topic, key }
+  var NORTC = !!q.get('nortc');
+  function send(o) {
+    if (navigator.vibrate) navigator.vibrate(12);
+    if (dc && dc.readyState === 'open') return dc.send(JSON.stringify(o));
+    if (relay && relay.ok) return seal(relay.key, { t: 'cmd', x: o }).then(function (body) { return fetch(RELAY + relay.topic, { method: 'POST', body: body }); }).then(function (r) { if (r.status === 429) st('wait', 'Çok hızlı basıldı, biraz yavaş'); }).catch(function () { st('', 'Gönderilemedi — internet var mı?'); });
+    connect();
+  }
+  // WebRTC yoksa ya da aynı ağda doğrudan bağlanılamadıysa: internet (ntfy kutusu) üzerinden — biraz daha yavaş
+  function relayMode(topic, key, why) {
+    try { dc && dc.close(); } catch (e) {} try { pc && pc.close(); } catch (e) {} dc = pc = null;
+    var id = Math.random().toString(36).slice(2, 10);
+    relay = { topic: topic, key: key, ok: false };
+    st('wait', 'Bağlanıyor (internet üzerinden)…');
+    if (!es) es = new EventSource(RELAY + topic + '/sse?since=' + (Math.floor(Date.now() / 1000) - 5));
+    es.onmessage = function (ev) {
+      var m; try { m = JSON.parse(ev.data); } catch (e) { return; }
+      if (!m || m.event !== 'message' || !m.message) return;
+      open(key, m.message).then(function (o) { if (o && o.t === 'hi' && o.id === id && relay) { relay.ok = true; clearTimeout(timer); st('on', 'Bağlı · internet üzerinden (' + (o.name || 'cihaz') + ')'); $('pair').hidden = true; $('ctl').hidden = false; } }, function () {});
+    };
+    seal(key, { t: 'hello', id: id, why: why || '' }).then(function (body) { return fetch(RELAY + topic, { method: 'POST', body: body }); }).then(function () {
+      clearTimeout(timer); timer = setTimeout(function () { if (!relay || !relay.ok) { st('', 'Cihaz yanıt vermedi — Gelecek IPTV açık mı, kod doğru mu?'); $('pair').hidden = false; } }, 12000);
+    }).catch(function (e) { st('', 'Bağlanamadı (' + e.message + ')'); $('pair').hidden = false; });
+  }
+  function cleanup() { try { es && es.close(); } catch (e) {} try { dc && dc.close(); } catch (e) {} try { pc && pc.close(); } catch (e) {} es = dc = pc = null; relay = null; clearTimeout(timer); }
   function connect() {
     var code = clean($('code').value || ls('kmCode'));
     if (code.length !== 8) { $('pair').hidden = false; $('ctl').hidden = true; st('', 'Bağlı değil'); return; }
-    if (!window.RTCPeerConnection || !crypto.subtle) { st('', 'Bu tarayıcı desteklemiyor'); return; }
+    if (!window.crypto || !crypto.subtle || !window.EventSource) { st('', 'Bu tarayıcı desteklemiyor (şifreleme yok) — sayfayı Safari / Chrome\'da https ile aç'); return; }
     if (pc && (pc.connectionState === 'connecting' || pc.connectionState === 'new')) return;
+    if (relay && !relay.ok) return;
     cleanup(); ls('kmCode', code); $('code').value = fmt(code);
     st('wait', 'Bağlanıyor…');
     var id = Math.random().toString(36).slice(2, 10);
     Promise.all([topicOf(code), keyOf(code)]).then(function (r) {
       var topic = r[0], key = r[1];
+      if (NORTC || !window.RTCPeerConnection) return relayMode(topic, key, 'webrtc-yok');
       pc = new RTCPeerConnection({ iceServers: ICE });
       dc = pc.createDataChannel('kumanda');
       dc.onopen = function () { tries = 0; clearTimeout(timer); st('on', 'Bağlı'); $('pair').hidden = true; $('ctl').hidden = false; try { es && es.close(); } catch (e) {} };
       dc.onclose = function () { st('', 'Bağlantı koptu — bir tuşa basınca yeniden bağlanır'); };
-      pc.onconnectionstatechange = function () { if (pc && pc.connectionState === 'failed') st('', 'Bağlanamadı — aynı Wi-Fi\'da mısınız?'); };
+      pc.onconnectionstatechange = function () { if (pc && pc.connectionState === 'failed') relayMode(topic, key, 'webrtc-basarisiz'); };
       es = new EventSource(RELAY + topic + '/sse?since=' + (Math.floor(Date.now() / 1000) - 5));
       es.onmessage = function (ev) {
         var m; try { m = JSON.parse(ev.data); } catch (e) { return; }
@@ -125,9 +149,8 @@ h1 b { color: var(--tally); }
         .then(function () {
           timer = setTimeout(function () {
             if (dc && dc.readyState === 'open') return;
-            st('', 'Cihaz yanıt vermedi — Gelecek IPTV açık mı, kod doğru mu?');
-            $('pair').hidden = false;
-          }, 15000);
+            relayMode(topic, key, 'webrtc-zaman-asimi');   // doğrudan bağlanılamadı: internet üzerinden dene
+          }, 9000);
         });
     }).catch(function (e) { st('', 'Bağlanamadı (' + e.message + ')'); $('pair').hidden = false; });
   }

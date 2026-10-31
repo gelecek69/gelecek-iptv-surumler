@@ -1,4 +1,4 @@
-<script>window.__tvBuilt="2.1.27";</script>
+<script>window.__tvBuilt="2.1.28";</script>
 <title>Gelecek IPTV</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -4879,8 +4879,8 @@ if (TIZEN) { $('btnRcv').hidden = false; $('btnRcv').onclick = relayStart; }
 /* --- Telefonu kumanda yap (TV ve Windows): telefon kumanda.html'i açar; eşleşme iletileri kodla şifrelenip
    ntfy.sh kutusundan geçer (yalnız bağlanırken 2 ileti), tuşlar sonra doğrudan telefon → cihaz (WebRTC, aynı ağ) gider. --- */
 var RMT_PAGE = (window.GELECEK_CONFIG && GELECEK_CONFIG.remotePage) || 'https://gelecek69.github.io/gelecek-iptv-surumler/kumanda.html';
-var RMT_OK = !!((TIZEN || DESKTOP) && window.RTCPeerConnection && window.EventSource && CAN_LOCK);
-var rmt = { es: null, pcs: {}, code: '', key: null, topic: '' };
+var RMT_OK = !!((TIZEN || DESKTOP) && window.EventSource && CAN_LOCK);   // WebRTC yoksa / bağlanamazsa tuşlar kutu üzerinden gelir
+var rmt = { es: null, pcs: {}, code: '', key: null, topic: '', seen: {} };
 function rmtKey(code, use) {
   return crypto.subtle.importKey('raw', u8(code), 'PBKDF2', false, ['deriveKey']).then(function (k) {
     return crypto.subtle.deriveKey({ name: 'PBKDF2', salt: u8('gelecek-kumanda'), iterations: 100000, hash: 'SHA-256' }, k, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
@@ -4907,7 +4907,17 @@ function rmtStart() {
     es.onmessage = function (ev) {
       var m; try { m = JSON.parse(ev.data); } catch (e) { return; }
       if (!m || m.event !== 'message' || !m.message) return;
-      rmtOpen(rmt.key, m.message).then(function (o) { if (o && o.t === 'offer' && o.id && o.sdp && !rmt.pcs[o.id]) rmtAnswer(o); }, function () {});
+      var fresh = !m.time || Math.abs(Date.now() / 1000 - m.time) < 25;   // eski tuşlar yeniden bağlanınca tekrar basılmasın
+      rmtOpen(rmt.key, m.message).then(function (o) {
+        if (!o) return;
+        if (o.t === 'offer' && o.id && o.sdp && !rmt.pcs[o.id] && window.RTCPeerConnection) rmtAnswer(o);
+        else if (o.t === 'hello' && o.id && fresh) {   // telefon doğrudan bağlanamadı: internet (kutu) üzerinden kumanda
+          rmtSeal(rmt.key, { t: 'hi', id: o.id, name: TIZEN ? 'Samsung TV' : 'Bilgisayar' }).then(function (body) { return fetch(RELAY + rmt.topic, { method: 'POST', body: body }); }).catch(function () {});
+          if (!$('rmtDlg').hidden) $('rmtDlg').hidden = true;
+          toast('📱 Telefon kumandası bağlandı (internet üzerinden)');
+        }
+        else if (o.t === 'cmd' && o.x && fresh && !(m.id && rmt.seen[m.id])) { if (m.id) rmt.seen[m.id] = 1; rmtDo(o.x); }
+      }, function () {});
     };
   });
 }
