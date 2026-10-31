@@ -1,4 +1,4 @@
-<script>window.__tvBuilt="2.1.29";</script>
+<script>window.__tvBuilt="2.1.30";</script>
 <title>Gelecek IPTV</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -824,6 +824,7 @@ html.is-android body.ui2 .home, html.is-android body.ui2 .rundown { grid-column:
     '#tzp .z-osd .z-no { font-size: 46px; font-weight: 700; color: #ff9f1c; margin-right: 22px; }' +
     '#tzp .z-osd .z-nm { font-size: 42px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }' +
     '#tzp .z-osd .z-sb { font-size: 24px; color: #c9d3df; margin-top: 8px; }' +
+    '#tzp .z-osd .z-tech { font-size: 18px; color: #8fa3bd; margin-top: 6px; letter-spacing: .04em; }' +
     '#tzp .z-osd .z-ep { font-size: 24px; margin-top: 10px; color: #e8edf3; }' +
     '#tzp .z-osd .z-ep i { font-style: normal; color: #ff9f1c; font-weight: 700; margin-right: 8px; }' +
     '#tzp .z-osd .z-pb { height: 5px; width: 520px; background: rgba(255,255,255,.25); border-radius: 3px; margin: 8px auto 0; overflow: hidden; }' +
@@ -889,7 +890,7 @@ html.is-android body.ui2 .home, html.is-android body.ui2 .rundown { grid-column:
     obj = document.createElement('object'); obj.id = 'tzAv'; obj.setAttribute('type', 'application/avplayer');
     document.body.insertBefore(obj, document.body.firstChild);
     ui = document.createElement('div'); ui.id = 'tzp';
-    ui.innerHTML = '<div class="z-osd"><div class="z-l1"><span class="z-no"></span><span class="z-nm"></span></div><div class="z-sb"></div><div class="z-ep"></div></div>' +
+    ui.innerHTML = '<div class="z-osd"><div class="z-l1"><span class="z-no"></span><span class="z-nm"></span></div><div class="z-sb"></div><div class="z-tech"></div><div class="z-ep"></div></div>' +
       '<div class="z-st"></div><div class="z-sub"></div><div class="z-zap"></div><div class="z-tst"></div>' +
       '<div class="z-bar"><div class="z-tl"><span class="z-tc">0:00</span><div class="z-tr"><b></b></div><span class="z-td">0:00</span></div>' +
       '<div class="z-hint"><em style="background:#e84a4a">●</em>Ses / altyazı <em style="background:#3cb371">●</em>Altyazı aç/kapa <em style="background:#f2c230">●</em>Ekran: <span class="z-ar">Sığdır</span> <em style="background:#fff">◀ ▶</em>' +
@@ -897,7 +898,7 @@ html.is-android body.ui2 .home, html.is-android body.ui2 .rundown { grid-column:
       '<div class="z-menu"></div><div class="z-cl"></div>';
     document.body.appendChild(ui);
     ['osd', 'st', 'sub', 'zap', 'tst', 'bar', 'menu', 'cl'].forEach(function (k) { el[k] = ui.querySelector('.z-' + k); });
-    el.no = ui.querySelector('.z-no'); el.nm = ui.querySelector('.z-nm'); el.sb = ui.querySelector('.z-sb'); el.ep = ui.querySelector('.z-ep');
+    el.no = ui.querySelector('.z-no'); el.nm = ui.querySelector('.z-nm'); el.sb = ui.querySelector('.z-sb'); el.tech = ui.querySelector('.z-tech'); el.ep = ui.querySelector('.z-ep');
     el.tc = ui.querySelector('.z-tc'); el.td = ui.querySelector('.z-td'); el.trb = ui.querySelector('.z-tr b'); el.hv = ui.querySelector('.z-hv'); el.hk = ui.querySelector('.z-hk'); el.ho = ui.querySelector('.z-ho'); el.ar = ui.querySelector('.z-ar');
   }
 
@@ -915,6 +916,7 @@ html.is-android body.ui2 .home, html.is-android body.ui2 .rundown { grid-column:
     var c = ch; if (!c) return;
     el.no.textContent = c.kind === 'live' || !c.kind ? String(idx + 1) : '';
     el.nm.textContent = c.kind === 'episode' ? (c.seriesName || c.name) : c.name;
+    el.tech.textContent = techLine(c);
     el.sb.textContent = c.kind === 'episode' ? 'Sezon ' + (c.season || 1) + (c.ep ? ' · ' + c.ep + '. Bölüm' : '') + (c.title ? ' · ' + c.title : '') : (c.arch ? 'Arşiv · ' : '') + (c.group || '');
     var h = H(), en = !isVod(c) && h.epgNow && h.epgNow(c), nx = !isVod(c) && h.epgNext && h.epgNext(c);
     el.ep.innerHTML = '';
@@ -945,6 +947,26 @@ html.is-android body.ui2 .home, html.is-android body.ui2 .rundown { grid-column:
     el.trb.style.width = d ? Math.min(100, t / d * 100) + '%' : '0';
   }
 
+  /* ---------- yayın biçimi (Xtream canlı): Otomatik / HLS / TS — kırmızı menüden ---------- */
+  var FMT = 'auto'; try { FMT = localStorage.getItem('tz_fmt') || 'auto'; } catch (e) {}
+  var FMTS = [['auto', 'Otomatik'], ['hls', 'HLS (.m3u8)'], ['ts', 'TS (.ts)']];
+  function xtLive(c) { return c && !isVod(c) && /\/live\/[^/]+\/[^/]+\/\d+\.ts(\?|$)/.test(c.url || ''); }
+  function techLine(c) {
+    var bits = [];
+    if (xtLive(c)) bits.push(c._hlsTry ? 'HLS' : 'TS');
+    try {
+      var info = av.getCurrentStreamInfo ? av.getCurrentStreamInfo() : [];
+      for (var i = 0; i < (info || []).length; i++) {
+        if (info[i].type !== 'VIDEO') continue;
+        var x = {}; try { x = typeof info[i].extra_info === 'string' ? JSON.parse(info[i].extra_info) : (info[i].extra_info || {}); } catch (e) {}
+        if (x.Width && x.Height) bits.push(x.Width + '×' + x.Height);
+        if (x.fourCC) bits.push(String(x.fourCC).toUpperCase());
+        if (x.Bit_rate && +x.Bit_rate > 0) bits.push(Math.round(+x.Bit_rate / 1e5) / 10 + ' Mbps');
+      }
+    } catch (e) {}
+    return bits.join(' · ');
+  }
+
   /* ---------- oynatma ---------- */
   var stoppedAt = 0, zapT2 = 0, prepT = 0, bufT = 0, bufOn = false, BUF_MS = window.__tzBufMs || 10000;
   function stopAv() {
@@ -968,7 +990,7 @@ html.is-android body.ui2 .home, html.is-android body.ui2 .rundown { grid-column:
     status('Bağlanıyor…'); showOsd();
     try {
       // Canlı .ts yayınları Samsung oynatıcısında takılabiliyor: Xtream'de aynı kanalın HLS (.m3u8) hali denenir, olmazsa .ts
-      var url = c.url, hls = !isVod(c) && !c._tsOnly && /\/live\/[^/]+\/[^/]+\/\d+\.ts(\?|$)/.test(url);
+      var url = c.url, hls = xtLive(c) && (FMT === 'hls' || (FMT === 'auto' && !c._tsOnly));
       if (hls) url = url.replace(/\.ts(\?|$)/, '.m3u8$1');
       c._hlsTry = hls;
       av.open(url);
@@ -1020,13 +1042,13 @@ html.is-android body.ui2 .home, html.is-android body.ui2 .rundown { grid-column:
   function stalled(c) {
     var now = Date.now();
     c._stallN = (c._lastStall && now - c._lastStall < 120000) ? (c._stallN || 0) + 1 : 1; c._lastStall = now;
-    if (c._stallN >= 2) { c._tsOnly = !c._tsOnly; c._stallN = 0; }   // bu biçimde takılıp duruyor: öbürünü dene
+    if (c._stallN >= 2 && FMT === 'auto') { c._tsOnly = !c._tsOnly; c._stallN = 0; }   // bu biçimde takılıp duruyor: öbürünü dene
     retry = 0; stopAv(); status('Görüntü takıldı, yeniden bağlanıyor…');
     clearTimeout(retryT); retryT = setTimeout(function () { if (ch === c && open) start(); }, 300);
   }
   function again(msg) {
     var c = ch; clearTimeout(retryT);
-    if (c && c._hlsTry && !c._tsOnly) { c._tsOnly = true; retry = 0; stopAv(); status('Bağlanıyor…'); retryT = setTimeout(function () { if (ch === c && open) start(); }, 300); return; }   // HLS olmadı: .ts
+    if (c && c._hlsTry && !c._tsOnly && FMT === 'auto') { c._tsOnly = true; retry = 0; stopAv(); status('Bağlanıyor…'); retryT = setTimeout(function () { if (ch === c && open) start(); }, 300); return; }   // HLS olmadı: .ts
     if (++retry > (isVod(c) ? 3 : 8)) { status(msg + '. Başka kanal seç ya da ↩ ile listeye dön.'); return; }
     status(msg);
     var keep = isVod(c) ? curMs() : 0;
@@ -1112,6 +1134,10 @@ html.is-android body.ui2 .home, html.is-android body.ui2 .rundown { grid-column:
     tracks.S.forEach(function (s) { items.push({ h: 'Altyazı', label: s.label, on: tracks.sOn === s, run: function () { extCues = null; setSub(s); if (H().lchSet) H().lchSet(ch, { s: s.l2 || '#' + s.index }); } }); });
     if (!tracks.A.length) items.unshift({ h: 'Ses', label: 'Bu yayında tek ses var', on: true, run: function () {} });
     AR.forEach(function (r) { items.push({ h: 'Ekran', label: r[1], on: arMode === r[0], ar: 1, run: function () { arSet(r[0]); } }); });
+    if (xtLive(ch)) FMTS.forEach(function (f) { items.push({ h: 'Yayın biçimi', label: f[1], on: FMT === f[0], ar: 1, run: function () {
+      FMT = f[0]; try { localStorage.setItem('tz_fmt', FMT); } catch (e) {}
+      ch._tsOnly = false; ch._stallN = 0; retry = 0; toast('Yayın biçimi: ' + f[1] + ' — kanal yeniden açılıyor'); stopAv(); status('Bağlanıyor…'); start();
+    } }); });
     menu = { items: items, f: Math.max(0, items.map(function (x) { return x.on; }).indexOf(true)) };
     drawMenu(); el.menu.className = 'z-menu z-on'; showOsd(true);
   }
