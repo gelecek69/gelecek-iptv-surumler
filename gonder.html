@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TV'ye Liste Gönder</title>
+<meta name="description" content="Gelecek IPTV: listeyi telefondan Samsung TV'ye gönder">
+<style>
+:root { --bg: #081120; --panel: #0d1b30; --line: #1c3354; --fg: #e8eef6; --muted: #8fa3bd; --tally: #ff9f1c; --ok: #3cb371; --err: #ff6b6b; }
+:root[data-theme="light"] { --bg: #f4f7fb; --panel: #ffffff; --line: #d5deea; --fg: #0d1b30; --muted: #5b6b82; }
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+main { max-width: 520px; margin: 0 auto; padding: 22px 16px 40px; }
+h1 { font-size: 22px; margin: 6px 0 4px; }
+h1 b { color: var(--tally); }
+.lead { color: var(--muted); margin: 0 0 18px; font-size: 15px; }
+label { display: block; font-size: 13px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin: 14px 0 6px; }
+input, textarea { width: 100%; background: var(--panel); color: var(--fg); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; font: inherit; }
+textarea { min-height: 92px; resize: vertical; }
+input:focus, textarea:focus { outline: 2px solid var(--tally); outline-offset: 1px; border-color: transparent; }
+#code { font: 700 26px/1.2 ui-monospace, Menlo, Consolas, monospace; letter-spacing: .14em; text-transform: uppercase; text-align: center; }
+.tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 18px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 4px; }
+.tabs button { background: none; border: 0; color: var(--muted); font-family: inherit; font-weight: 600; font-size: 15px; line-height: 1; padding: 11px 8px; border-radius: 9px; cursor: pointer; }
+.tabs button[aria-selected="true"] { background: var(--tally); color: #1a1205; }
+.hint { color: var(--muted); font-size: 13px; margin: 6px 0 0; }
+.send { width: 100%; margin-top: 22px; background: var(--tally); color: #1a1205; border: 0; border-radius: 12px; padding: 15px; font-family: inherit; font-weight: 700; font-size: 17px; cursor: pointer; }
+.send:disabled { opacity: .6; }
+.msg { margin-top: 16px; padding: 12px 14px; border-radius: 10px; font-size: 15px; display: none; }
+.msg.ok { display: block; background: rgba(60,179,113,.14); border: 1px solid var(--ok); }
+.msg.err { display: block; background: rgba(255,107,107,.12); border: 1px solid var(--err); }
+.foot { color: var(--muted); font-size: 12px; margin-top: 26px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Gelecek <b>IPTV</b> · TV'ye gönder</h1>
+  <p class="lead">TV'de <b>Ayarlar › Bağlantıyla › Telefondan gönder</b> ekranındaki kodu yaz (QR ile geldiysen hazır yazılıdır), listeyi seç ve gönder.</p>
+
+  <label for="code">TV'deki kod</label>
+  <input id="code" inputmode="text" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="ABCD-1234" maxlength="9">
+
+  <div class="tabs" role="tablist">
+    <button type="button" role="tab" id="tLink" aria-selected="true">Bağlantı</button>
+    <button type="button" role="tab" id="tX" aria-selected="false">Xtream hesabı</button>
+  </div>
+
+  <div id="pLink">
+    <label for="link">Paylaşım bağlantısı ya da M3U linki</label>
+    <textarea id="link" spellcheck="false" placeholder="https://…/kur.html#g1.…  ya da  http://…/get.php?username=…"></textarea>
+    <p class="hint">WhatsApp'ta gelen Gelecek IPTV bağlantısının tamamını ya da sağlayıcının verdiği M3U linkini yapıştır.</p>
+  </div>
+  <div id="pX" hidden>
+    <label for="xs">Sunucu</label><input id="xs" inputmode="url" autocomplete="off" spellcheck="false" placeholder="http://sunucu.com:8080">
+    <label for="xu">Kullanıcı adı</label><input id="xu" autocomplete="off" spellcheck="false">
+    <label for="xp">Şifre</label><input id="xp" autocomplete="off" spellcheck="false">
+  </div>
+  <label for="nm">Liste adı (isteğe bağlı)</label>
+  <input id="nm" autocomplete="off" placeholder="Benim liste">
+
+  <button class="send" type="button" id="go">TV'ye gönder</button>
+  <div class="msg" id="msg" role="status"></div>
+  <p class="foot">Liste bilgileri telefonda TV'deki kodla şifrelenir; aradaki ileti kutusu (ntfy.sh) yalnız şifreli veriyi görür ve kodu bilmeyen açamaz. Kod 15 dakika geçerlidir.</p>
+</main>
+<script>
+(function () {
+  var q = new URLSearchParams(location.search), RELAY = q.get('relay') || 'https://ntfy.sh/';
+  var $ = function (id) { return document.getElementById(id); }, mode = 'link';
+  function clean(c) { return String(c || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8); }
+  function fmt(c) { c = clean(c); return c.length > 4 ? c.slice(0, 4) + '-' + c.slice(4) : c; }
+  var h = clean(decodeURIComponent(location.hash.slice(1))); if (h) $('code').value = fmt(h);
+  $('code').addEventListener('input', function () { var v = fmt(this.value); if (v !== this.value) this.value = v; });
+  function tab(m) { mode = m; $('tLink').setAttribute('aria-selected', m === 'link'); $('tX').setAttribute('aria-selected', m === 'x'); $('pLink').hidden = m !== 'link'; $('pX').hidden = m !== 'x'; }
+  $('tLink').onclick = function () { tab('link'); }; $('tX').onclick = function () { tab('x'); };
+  function u8(s) { return new TextEncoder().encode(s); }
+  function b64u(a) { var b = ''; for (var i = 0; i < a.length; i++) b += String.fromCharCode(a[i]); return btoa(b).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); }
+  function say(t, ok) { var m = $('msg'); m.textContent = t; m.className = 'msg ' + (ok ? 'ok' : 'err'); }
+  function g1(o) { return 'g1.' + b64u(u8(JSON.stringify(o))); }
+  function xcreds(url) {
+    try { var u = new URL(url), us = u.searchParams.get('username'), pw = u.searchParams.get('password'); if (us && pw) return { s: u.origin, u: us, p: pw }; } catch (e) {}
+    return null;
+  }
+  function build() {
+    var n = $('nm').value.trim() || 'Benim liste';
+    if (mode === 'x') {
+      var s = $('xs').value.trim().replace(/\/+$/, ''), u = $('xu').value.trim(), p = $('xp').value;
+      if (!/^https?:\/\//i.test(s)) s = s ? 'http://' + s : '';
+      if (!s || !u || !p) throw new Error('Sunucu, kullanıcı adı ve şifreyi yaz.');
+      return g1({ v: 1, n: n, t: 'x', s: s, u: u, p: p });
+    }
+    var v = $('link').value.trim();
+    var code = (v.match(/g[123]\.[A-Za-z0-9_-]{8,}/) || [])[0]; if (code) return code;
+    var url = (v.match(/https?:\/\/\S+/) || [])[0]; if (!url) throw new Error('Bağlantı bulunamadı. Paylaşım bağlantısını ya da M3U linkini yapıştır.');
+    var x = xcreds(url); if (x) return g1({ v: 1, n: n, t: 'x', s: x.s, u: x.u, p: x.p });
+    return g1({ v: 1, n: n, t: 'm', url: url });
+  }
+  $('go').onclick = function () {
+    var code = clean($('code').value), text;
+    if (code.length !== 8) { say('TV\'deki 8 harflik kodu yaz.', false); return $('code').focus(); }
+    try { text = build(); } catch (e) { return say(e.message, false); }
+    if (!window.crypto || !crypto.subtle) return say('Bu tarayıcı şifrelemeyi desteklemiyor. Chrome ya da Safari ile aç.', false);
+    var btn = this; btn.disabled = true; btn.textContent = 'Gönderiliyor…';
+    var topic = crypto.subtle.digest('SHA-256', u8('gelecek-tv-konu:' + code)).then(function (d) {
+      return 'gelecekiptv_' + Array.prototype.map.call(new Uint8Array(d).slice(0, 12), function (x) { return (x < 16 ? '0' : '') + x.toString(16); }).join('');
+    });
+    var key = crypto.subtle.importKey('raw', u8(code), 'PBKDF2', false, ['deriveKey']).then(function (k) {
+      return crypto.subtle.deriveKey({ name: 'PBKDF2', salt: u8('gelecek-tv-gonder'), iterations: 100000, hash: 'SHA-256' }, k, { name: 'AES-GCM', length: 256 }, false, ['encrypt']);
+    });
+    Promise.all([topic, key]).then(function (r) {
+      var iv = crypto.getRandomValues(new Uint8Array(12));
+      return crypto.subtle.encrypt({ name: 'AES-GCM', iv: iv }, r[1], u8(text)).then(function (ct) {
+        var c = new Uint8Array(ct), all = new Uint8Array(12 + c.length); all.set(iv, 0); all.set(c, 12);
+        return fetch(RELAY + r[0], { method: 'POST', body: b64u(all) });
+      });
+    }).then(function (res) {
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      say('Gönderildi ✓ Birkaç saniye içinde TV\'de "eklensin mi?" sorusu çıkar, kumandayla Ekle\'ye bas.', true);
+    }).catch(function (e) { say('Gönderilemedi (' + e.message + '). İnternet bağlantını kontrol edip yeniden dene.', false); })
+      .then(function () { btn.disabled = false; btn.textContent = 'TV\'ye gönder'; });
+  };
+})();
+</script>
+</body>
+</html>

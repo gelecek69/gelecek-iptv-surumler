@@ -1,4 +1,4 @@
-<script>window.__tvBuilt="2.1.15";</script>
+<script>window.__tvBuilt="2.1.16";</script>
 <title>Gelecek IPTV</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -35,6 +35,7 @@
 .share-row small { font-size: 12px; font-weight: 400; color: var(--muted, #9aa7b4); }
 @media (max-width: 560px) { .share-row { grid-template-columns: 1fr; } }
 .share-qr { display: grid; place-items: center; min-height: 0; }
+.rcv-code { font: 700 34px/1.3 var(--f-mono, monospace); letter-spacing: .12em; color: var(--tally); }
 .share-qr svg, .share-qr img { width: min(240px, 70vw); height: auto; background: #fff; border-radius: 8px; padding: 6px; }
 #shareLink, #fCode { width: 100%; background: var(--panel-2); color: var(--fg); border: 1px solid var(--line); border-radius: 6px; padding: 8px; font: 12px/1.4 var(--f-mono); resize: vertical; }
 .chk { display: flex; gap: 8px; align-items: center; font-size: 14px; }
@@ -732,7 +733,7 @@ html.is-android body.ui2 .home, html.is-android body.ui2 .rundown { grid-column:
 <div class="modal" id="rcvDlg" hidden>
   <div class="sheet share-sheet" role="dialog" aria-modal="true" aria-labelledby="rcvTitle">
     <h2 id="rcvTitle">Telefondan liste gönder</h2>
-    <p class="hint">Telefon ile bu cihaz <b>aynı Wi-Fi'da</b> olsun. Telefonun kamerasıyla QR kodu okut, açılan sayfaya paylaşım bağlantısını yapıştır ve <b>Gönder</b>'e bas.</p>
+    <p class="hint" id="rcvHint">Telefon ile bu cihaz <b>aynı Wi-Fi'da</b> olsun. Telefonun kamerasıyla QR kodu okut, açılan sayfaya paylaşım bağlantısını yapıştır ve <b>Gönder</b>'e bas.</p>
     <div class="share-qr" id="rcvQr"></div>
     <p class="hint" id="rcvUrl" style="text-align:center"></p>
     <div class="row-actions"><button class="btn" type="button" id="rcvClose">Kapat</button></div>
@@ -4682,7 +4683,64 @@ $('btnRcv').onclick = function () {
   if (!url) return toast('Ağ bulunamadı. Cihaz Wi-Fi\'a bağlı mı?');
   $('rcvUrl').textContent = url; $('rcvDlg').hidden = false; qrInto($('rcvQr'), url); $('rcvClose').focus();
 };
-$('rcvClose').onclick = function () { $('rcvDlg').hidden = true; try { NATIVE.stopReceiver(); } catch (e) {} };
+$('rcvClose').onclick = function () { $('rcvDlg').hidden = true; try { NATIVE.stopReceiver(); } catch (e) {} relayStop(); };
+
+/* --- Samsung TV: telefondan gönder (internet üzerinden; TV'de alıcı sunucu açılamaz)
+   TV 8 harflik bir kod gösterir. Telefon gonder.html sayfasında listeyi bu kodla şifreleyip (AES-GCM) aracı kutuya
+   (ntfy.sh, herkese açık ileti kutusu) bırakır; TV kutuyu birkaç saniyede bir yoklar, kodla çözer. Kutuda yalnız
+   şifreli veri durur, kodu bilmeyen okuyamaz. --- */
+var RELAY = (function () { try { return localStorage.getItem('tv.relay'); } catch (e) { return null; } })() || 'https://ntfy.sh/';
+var SEND_PAGE = (window.GELECEK_CONFIG && GELECEK_CONFIG.sendPage) || 'https://gelecek69.github.io/gelecek-iptv-surumler/gonder.html';
+var relayT = 0, relayEnd = 0, relayCode = '', relaySince = 0;
+function relayNewCode() {
+  var A = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789', r = crypto.getRandomValues(new Uint8Array(8)), c = '';
+  for (var i = 0; i < 8; i++) c += A.charAt(r[i] % A.length);
+  return c;
+}
+function relayTopic(code) {
+  return crypto.subtle.digest('SHA-256', u8('gelecek-tv-konu:' + code)).then(function (h) {
+    return 'gelecekiptv_' + [].map.call(new Uint8Array(h).slice(0, 12), function (x) { return (x < 16 ? '0' : '') + x.toString(16); }).join('');
+  });
+}
+function relayKey(code) {
+  return crypto.subtle.importKey('raw', u8(code), 'PBKDF2', false, ['deriveKey']).then(function (k) {
+    return crypto.subtle.deriveKey({ name: 'PBKDF2', salt: u8('gelecek-tv-gonder'), iterations: 100000, hash: 'SHA-256' }, k, { name: 'AES-GCM', length: 256 }, false, ['decrypt']);
+  });
+}
+function relayStop() { clearTimeout(relayT); relayT = 0; relayCode = ''; }
+function relayStart() {
+  if (!CAN_LOCK) return toast('Bu TV şifrelemeyi desteklemiyor; listeyi elle yaz.');
+  relayStop();
+  var code = relayCode = relayNewCode(), show = code.slice(0, 4) + '-' + code.slice(4), url = SEND_PAGE + '#' + code;
+  relaySince = Math.floor(Date.now() / 1000) - 5; relayEnd = Date.now() + 15 * 60e3;
+  $('rcvTitle').textContent = 'Telefondan liste gönder';
+  $('rcvHint').innerHTML = 'Telefonun kamerasıyla QR kodu okut. Açılan sayfada listeyi seç ya da yaz, <b>TV\'ye gönder</b>\'e bas. Telefon ile TV\'nin aynı Wi-Fi\'da olması gerekmez.';
+  $('rcvUrl').innerHTML = 'Kod: <b class="rcv-code">' + show + '</b><br><small>QR okumazsa telefonda aç: ' + esc(SEND_PAGE.replace(/^https:\/\//, '')) + '</small>';
+  $('rcvDlg').hidden = false; qrInto($('rcvQr'), url); $('rcvClose').focus();
+  Promise.all([relayTopic(code), relayKey(code)]).then(function (r) { if (relayCode === code) relayPoll(code, r[0], r[1]); });
+}
+function relayPoll(code, topic, key) {
+  if (relayCode !== code || $('rcvDlg').hidden) return;
+  if (Date.now() > relayEnd) { $('rcvUrl').innerHTML = 'Süre doldu. Yeni kod için pencereyi kapatıp yeniden aç.'; relayStop(); return; }
+  var next = function () { if (relayCode === code) relayT = setTimeout(function () { relayPoll(code, topic, key); }, 6000); /* ntfy.sh: 5 sn'de bir istek sınırı */ };
+  fetchText(RELAY + topic + '/json?poll=1&since=' + relaySince).then(function (t) {
+    var msgs = String(t || '').split('\n').map(function (l) { try { return JSON.parse(l); } catch (e) { return null; } })
+      .filter(function (m) { return m && m.event === 'message' && m.message; });
+    var tryOne = function (i) {
+      if (i >= msgs.length) return next();
+      var all; try { all = unb64u(String(msgs[i].message).trim()); } catch (e) { return tryOne(i + 1); }
+      crypto.subtle.decrypt({ name: 'AES-GCM', iv: all.slice(0, 12) }, key, all.slice(12)).then(function (pt) {
+        if (relayCode !== code) return;
+        var text = str8(new Uint8Array(pt)); relayStop(); $('rcvDlg').hidden = true;
+        toast('Telefondan liste geldi');
+        if (!$('modal').hidden) closeModal();
+        if (extractCode(text)) window.__iptvImport(text); else window.__iptvPrefill(text);
+      }, function () { tryOne(i + 1); });
+    };
+    tryOne(0);
+  }, next);
+}
+if (TIZEN) { $('btnRcv').hidden = false; $('btnRcv').onclick = relayStart; }
 
 
 /* ================= yeni görünüm (ui2) =================
