@@ -1,4 +1,4 @@
-<script>window.__tvBuilt="2.1.23";</script>
+<script>window.__tvBuilt="2.1.24";</script>
 <title>Gelecek IPTV</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -151,6 +151,10 @@ button { cursor: pointer; }
 .ch.card.lv .cap { flex: 1; padding-right: 26px; }
 .ch.card.lv .cap b { -webkit-line-clamp: 1; font-size: 15px; font-weight: 600; }
 .ch.card.lv .cap small .ep-t { color: var(--fg); opacity: .85; }
+.ch.card.vd .pst { aspect-ratio: 2 / 3; font-size: 18px; }
+.ch.card.vd .pst img { object-fit: cover; padding: 0; }
+.ch.card.vd .cap b { -webkit-line-clamp: 2; }
+.ch.card.vd .ser { left: 3px; bottom: 3px; font-size: 9px; padding: 2px 4px; }
 .ch.card.lv .fav { top: 50%; right: 8px; transform: translateY(-50%); width: 24px; height: 24px; padding: 4px; background: none; }
 .ch {
   position: absolute; left: 0; right: 0; height: var(--row);
@@ -2065,19 +2069,22 @@ window.addEventListener('resize', function () { ROWH = 0; });
 /* ---------- afiş görünümü (film / dizi): kapak resimleri ızgarada ---------- */
 var POSTER = lsGet('poster', TIZEN ? { movie: false, series: false } : { movie: true, series: true }) || {};   // TV'de varsayılan satır görünümü (daha hafif)
 if (POSTER.live === undefined) POSTER.live = !!TIZEN;   // canlı kanallar: TV'de kare (yan yana), bilgisayarda satır
+if (TIZEN && !lsGet('poster3', false)) { POSTER.movie = POSTER.series = POSTER.live = true; lsSet('poster', POSTER); lsSet('poster3', true); }   // TV: film / dizi de 3'lü yatık kart
+function row3() { return kind === 'live' || TIZEN; }   // yatık kart (solda resim, sağda yazı): canlıda her yerde, film / dizide TV'de
 function gridKind() { return kind === 'movie' || kind === 'series' || kind === 'live'; }
 function posterOn() { return !sv && gridKind() && !!POSTER[kind]; }
 function grid() {
   if (!posterOn()) { var h = rowH(); return { cols: 1, w: 0, h: h }; }
   var W = listEl.clientWidth || 320;
-  if (kind === 'live') { var lc = TIZEN ? 3 : Math.max(2, Math.floor(W / 280)), lw = W / lc; return { cols: lc, w: lw, h: TIZEN ? 96 : 78 }; }   // yatık kart: solda logo, sağda ad + program
+  if (kind === 'live') { var lc = TIZEN ? 3 : Math.max(2, Math.floor(W / 280)), lw = W / lc; return { cols: lc, w: lw, h: TIZEN ? 96 : 78 }; }
+  if (TIZEN) return { cols: 3, w: W / 3, h: 112 };   // TV film / dizi: 3'lü yatık kart, solda küçük afiş   // yatık kart: solda logo, sağda ad + program
   var cols = Math.max(2, Math.floor(W / 136)), w = W / cols;
   return { cols: cols, w: w, h: Math.round((w - 12) * 1.5 + 58) };
 }
 function updPosterBtn() {
   var b = $('btnPoster'); if (!b) return;
   b.hidden = sv || !gridKind();
-  var on = posterOn(), lv = kind === 'live'; b.setAttribute('aria-pressed', on); b.querySelector('span').textContent = on ? (lv ? 'Satır' : 'Liste') : (lv ? 'Kare' : 'Afiş');
+  var on = posterOn(), lv = row3(); b.setAttribute('aria-pressed', on); b.querySelector('span').textContent = on ? (lv ? 'Satır' : 'Liste') : (lv ? 'Kare' : 'Afiş');
   b.title = on ? 'Satır görünümüne geç' : (lv ? 'Kanalları yan yana kare göster' : 'Afiş görünümüne geç');
 }
 function togglePoster() {
@@ -2102,7 +2109,7 @@ function drawRows() {
     if (el && (el._p || false) !== P) { el.remove(); el = null; }
     if (!el && P) {
       el = document.createElement('div');
-      el.className = 'ch card' + (c.kind === 'live' ? ' lv' : ''); el.setAttribute('role', 'option'); el.dataset.i = i; el._p = true;
+      el.className = 'ch card' + (row3() ? ' lv' + (c.kind === 'live' ? '' : ' vd') : ''); el.setAttribute('role', 'option'); el.dataset.i = i; el._p = true;
       el.style.cssText = 'top:' + (Math.floor(i / G.cols) * h) + 'px;left:' + ((i % G.cols) * G.w) + 'px;width:' + G.w + 'px;height:' + h + 'px;right:auto';
       el.innerHTML = cardHtml(c, i);
       innerEl.appendChild(el); rowsCache[i] = el;
