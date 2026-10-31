@@ -1,4 +1,4 @@
-<script>window.__tvBuilt="2.1.24";</script>
+<script>window.__tvBuilt="2.1.25";</script>
 <title>Gelecek IPTV</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -466,6 +466,19 @@ body.ui2 .home { display: flex; flex-direction: column; gap: 18px; padding: 22px
 .h-tile:hover { border-color: #2b5383; }
 .h-tile.loading small i { font-style: italic; opacity: .7; }
 .home:not(:focus-within) .h-tile[aria-current="true"], .h-tile:focus-visible { border: 2px solid var(--tally); background: #0d2340; box-shadow: 0 0 0 4px rgba(255,159,28,.14); outline: none; }
+.h-strips { display: grid; gap: 14px; }
+.h-strips:empty { display: none; }
+.h-strip h3 { margin: 0 0 8px 2px; font: 600 12px/1 var(--f-body); letter-spacing: .12em; text-transform: uppercase; color: #8fb3d6; }
+.h-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.h-it { position: relative; display: flex; align-items: center; gap: 10px; min-width: 0; height: 58px; padding: 6px 10px 6px 6px; border-radius: 10px; border: 1px solid #1a3355; background: #0a1a30; color: var(--fg); text-align: left; overflow: hidden; }
+.h-it .hi-l { flex: none; width: 46px; height: 46px; border-radius: 8px; background: linear-gradient(160deg, var(--panel-2), #0a0f16); display: grid; place-items: center; font: 700 14px/1 var(--f-display); color: var(--muted); overflow: hidden; }
+.h-it .hi-l img { width: 100%; height: 100%; object-fit: contain; }
+.h-it .hi-t { min-width: 0; display: grid; gap: 3px; }
+.h-it b { font: 600 14px/1.2 var(--f-body); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.h-it small { font: 400 12px/1.2 var(--f-body); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.h-it .hi-p { position: absolute; left: 0; bottom: 0; height: 3px; background: var(--tally); }
+.h-it:hover { border-color: #2b5383; }
+.h-it:focus-visible { outline: none; border: 2px solid var(--tally); background: #0d2340; }
 .h-links { display: flex; flex-direction: column; gap: 2px; border-top: 1px solid var(--line); padding-top: 14px; }
 .h-links button { display: flex; align-items: center; gap: 14px; background: none; border: 0; border-radius: 10px; padding: 11px 12px; color: #c4d4e6; font: 500 17px/1 var(--f-body); text-align: left; }
 .h-links button svg { width: 20px; height: 20px; flex: none; }
@@ -547,6 +560,7 @@ html.is-android body.ui2 .home, html.is-android body.ui2 .rundown { grid-column:
       <button type="button" class="h-tile" data-hk="movie"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M3 7l3-4h3l-3 4M9 7l3-4h3l-3 4M15 7l3-4h3l-3 4"/></svg><span><b>Film</b><small><span lang="en">MOVIES</span> · <i data-hn="movie"></i></small></span></button>
       <button type="button" class="h-tile" data-hk="series"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="6" y="3" width="15" height="15" rx="2"/><path d="M3 7v12a2 2 0 0 0 2 2h12"/><path d="M11 8v5l4-2.5z" fill="currentColor"/></svg><span><b>Dizi</b><small><span lang="en">SERIES</span> · <i data-hn="series"></i></small></span></button>
     </div>
+    <div class="h-strips" id="hStrips"></div>
     <div class="h-links">
       <button type="button" data-hl="home" aria-current="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>Ana Sayfa</button>
       <button type="button" data-hl="groups"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>Kategoriler</button>
@@ -841,6 +855,8 @@ html.is-android body.ui2 .home, html.is-android body.ui2 .rundown { grid-column:
     'html.is-tizen body.ui2 .home { padding-left: 4.5% !important; padding-right: 4.5% !important; justify-content: center; gap: 22px; }' +
     'html.is-tizen body.ui2 .h-tiles { width: 100% !important; gap: 18px; }' +
     'html.is-tizen body.ui2 .h-tile { min-height: 300px !important; border-radius: 20px; }' +
+    // şerit varsa (İzlemeye devam et vb.) kutular alçalır, şeritler ekrana sığar
+    'html.is-tizen body.ui2.h-has-strips .h-tile { min-height: 104px !important; } html.is-tizen body.ui2.h-has-strips .h-tile svg { width: 34px; height: 34px; } html.is-tizen body.ui2.h-has-strips .h-tile b { font-size: 26px; } html.is-tizen body.ui2.h-has-strips .home { gap: 12px; padding-top: 18px !important; padding-bottom: 12px !important; } html.is-tizen body.ui2 .h-strips { width: 100%; gap: 10px; } html.is-tizen body.ui2 .h-row { grid-template-columns: repeat(4, minmax(0, 1fr)); } html.is-tizen .h-it b { font-size: 15px; } html.is-tizen .h-it small { font-size: 12px; } html.is-tizen .h-strip h3 { font-size: 13px; }' +
     'html.is-tizen body.ui2 .h-tile svg { width: 48px; height: 48px; }' +
     'html.is-tizen body.ui2 .h-tile b { font-size: 34px; }' +
     'html.is-tizen body.ui2 .h-tile small { font-size: 15px; }' +
@@ -2018,7 +2034,9 @@ function posSave(c, t, d) {
   if (!c || !(t >= 0)) return;
   // sonuna geldiyse (jenerik) bitmiş say
   if (t < 15 || (d && t > d - Math.min(45, d * 0.05))) { if (POS[c.key]) { delete POS[c.key]; lsSet('pos', POS); } return; }
-  POS[c.key] = [Math.floor(t), Math.floor(d || 0), Date.now()];
+  // kısa kopya: "İzlemeye devam et"ten liste yüklenmeden de açılabilsin (Xtream bölümleri katalogda durmaz)
+  var mini = { n: c.name, u: c.url, k: c.kind, sn: c.seriesName, s: c.season, e: c.ep, ti: c.title, pk: c.parentKey, l: c.logo, ua: c.ua, g: c.group, p: (activePl() || {}).id };
+  POS[c.key] = [Math.floor(t), Math.floor(d || 0), Date.now(), mini];
   var ks = Object.keys(POS);
   if (ks.length > 400) ks.sort(function (a, b) { return POS[a][2] - POS[b][2]; }).slice(0, ks.length - 400).forEach(function (k) { delete POS[k]; });
   lsSet('pos', POS);
@@ -4853,6 +4871,50 @@ function uiApply() {
   if (ps) { var to = UI2 ? $('hPl') : document.querySelector('.rail'); if (ps.parentNode !== to) { if (UI2) to.appendChild(ps); else to.insertBefore(ps, $('groups').previousElementSibling); } }
   $('uiNew').checked = UI2; $('epgOn').checked = EPG_ON; $('logosOn').checked = LOGOS;
 }
+/* ---------- ana sayfa şeritleri: İzlemeye devam et · Son izlenen kanallar · Favoriler ---------- */
+function posItem(k) {
+  var c = cat.byKey && cat.byKey[k]; if (c) return c;
+  var p = POS[k], m = p && p[3]; if (!m || !m.u || (m.p && m.p !== (activePl() || {}).id)) return null;
+  return { key: k, name: m.n, url: m.u, kind: m.k || 'movie', seriesName: m.sn, season: m.s, ep: m.e, title: m.ti, parentKey: m.pk, logo: m.l || '', ua: m.ua || '', group: m.g || '' };
+}
+function stripData() {
+  if (listLoading || !cat.all) return [];
+  var N = TIZEN ? 4 : PLATFORM === 'android' ? 6 : 4, out = [];
+  var cont = Object.keys(POS).filter(function (k) { return POS[k][1] > 0; }).sort(function (a, b) { return (POS[b][2] || 0) - (POS[a][2] || 0); })
+    .map(posItem).filter(function (c) { return c && (c.kind === 'movie' || c.kind === 'episode') && visibleItem(c); }).slice(0, N);
+  if (cont.length) out.push({ id: 'cont', t: 'İzlemeye devam et', items: cont });
+  var lv = recents.map(function (k) { return cat.byKey[k]; }).filter(function (c) { return c && c.kind === 'live' && visibleItem(c); }).slice(0, N);
+  if (lv.length) out.push({ id: 'live', t: 'Son izlenen kanallar', items: lv });
+  var fv = Array.from(favs).map(function (k) { return cat.byKey[k]; }).filter(function (c) { return c && visibleItem(c); }).slice(0, N);
+  if (fv.length) out.push({ id: 'fav', t: 'Favoriler', items: fv });
+  return out;
+}
+var stripLists = {};
+function renderStrips() {
+  var box = $('hStrips'); if (!box) return;
+  var S = stripData(); stripLists = {};
+  box.innerHTML = S.map(function (st) {
+    stripLists[st.id] = st.items;
+    return '<div class="h-strip"><h3>' + st.t + '</h3><div class="h-row">' + st.items.map(function (c, i) {
+      var p = posGet(c), pct = p && p.d ? Math.min(100, Math.round(p.t / p.d * 100)) : 0;
+      var nm = c.kind === 'episode' ? (c.seriesName || c.name) : c.name;
+      var sub = c.kind === 'episode' ? 'S' + (c.season || 1) + (c.ep ? ' · ' + c.ep + '. bölüm' : '') + (p ? ' · ' + fmtTime(p.t) : '')
+        : p ? fmtTime(p.t) + (p.d ? ' / ' + fmtTime(p.d) : '') : (c.kind === 'live' ? (EPG_ON && epgNow(c) ? epgNow(c).t : c.group || '') : c.kind === 'series' ? 'Dizi' : c.group || '');
+      return '<button type="button" class="h-it" data-hs="' + st.id + '" data-hi="' + i + '"><span class="hi-l">' + (c.logo && LOGOS ? '<img loading="lazy" alt="" src="' + esc(c.logo) + '" onerror="this.remove()">' : esc(initials(nm))) + '</span>' +
+        '<span class="hi-t"><b>' + esc(nm) + '</b><small>' + esc(sub) + '</small></span>' + (pct ? '<i class="hi-p" style="width:' + pct + '%"></i>' : '') + '</button>';
+    }).join('') + '</div></div>';
+  }).join('');
+  document.body.classList.toggle('h-has-strips', S.length > 0);
+}
+function stripOpen(id, i) {
+  var L = stripLists[id] || [], c = L[i]; if (!c) return;
+  if (c.kind === 'series') { goList('series'); return openSeries(c); }
+  var k = c.kind === 'episode' ? 'series' : c.kind === 'movie' ? 'movie' : 'live';
+  goList(k);
+  var list = c.kind === 'live' ? L.filter(function (x) { return x.kind === 'live'; }) : [c];
+  if (c.kind === 'episode') { var par = cat.byKey[c.parentKey], eps = par && (par._eps || par.episodes); if (eps && eps.some(function (x) { return x.key === c.key; })) { list = eps; c = eps.filter(function (x) { return x.key === c.key; })[0]; } }
+  play(c, list);
+}
 function renderHome() {
   if (!UI2) return;
   var last = listLoading ? ((lsGet('homeN', {}) || {})[(activePl() || {}).id] || null) : null;
@@ -4865,6 +4927,7 @@ function renderHome() {
   if (i.exp) bits.push('Bitiş ' + fmtDate(i.exp));
   if (i.max) bits.push(i.act + '/' + i.max + ' bağlantı');
   if (listLoading) bits.unshift('Kanallar yükleniyor…');
+  renderStrips();
   $('hAcc').textContent = bits.join(' · ');
 }
 function u2Head() {
@@ -4918,6 +4981,7 @@ function uiBack() {   // Geri: grup paneli → dizi → ana sayfa (tam ekrandaki
   return false;
 }
 $('home').addEventListener('click', function (e) {
+  var hi = e.target.closest('.h-it'); if (hi) return stripOpen(hi.dataset.hs, +hi.dataset.hi);
   var t = e.target.closest('.h-tile'), l = e.target.closest('[data-hl]');
   if (t) return goList(t.dataset.hk);
   if (!l) return;
