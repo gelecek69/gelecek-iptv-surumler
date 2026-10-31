@@ -1,4 +1,4 @@
-<script>window.__tvBuilt="2.1.22";</script>
+<script>window.__tvBuilt="2.1.23";</script>
 <title>Gelecek IPTV</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -142,13 +142,16 @@ button { cursor: pointer; }
 .ch.card .fav { position: absolute; top: 10px; right: 10px; z-index: 2; background: rgba(0,0,0,.55); border-radius: 50%; width: 28px; height: 28px; padding: 5px; }
 .ch.card .ser { position: absolute; left: 6px; bottom: 6px; z-index: 1; background: rgba(0,0,0,.7); color: #fff; font: 600 10px/1 var(--f-display); letter-spacing: .06em; padding: 3px 6px; border-radius: 4px; }
 .ch.card.sel { outline: 2px solid var(--tally); outline-offset: -2px; }
-/* canlı kanallar kare görünümde: logo / baş harfler, kanal no, şu anki program */
-.ch.card.lv .pst { font-size: 30px; letter-spacing: .04em; }
-.ch.card.lv .pst img { object-fit: contain; padding: 12px 18px; }
-.ch.card.lv .cno { position: absolute; left: 8px; top: 6px; z-index: 1; font: 600 12px/1 var(--f-mono, monospace); color: var(--muted); }
+/* canlı kanallar kare görünümde (yatık kart): solda logo / baş harfler + kanal no, sağda ad ve şu anki program */
+.ch.card.lv { flex-direction: row; align-items: center; gap: 12px; padding: 6px 8px; }
+.ch.card.lv .pst { flex: none; align-self: stretch; aspect-ratio: 4 / 3; font-size: 22px; letter-spacing: .04em; }
+.ch.card.lv .pst img { object-fit: contain; padding: 6px 8px; }
+.ch.card.lv .cno { position: absolute; left: 5px; top: 4px; z-index: 1; font: 600 11px/1 var(--f-mono, monospace); color: var(--muted); }
 .ch.card.lv.playing .pst { box-shadow: inset 0 0 0 2px var(--onair); }
-.ch.card.lv .cap b { -webkit-line-clamp: 1; font-size: 14px; font-weight: 600; }
+.ch.card.lv .cap { flex: 1; padding-right: 26px; }
+.ch.card.lv .cap b { -webkit-line-clamp: 1; font-size: 15px; font-weight: 600; }
 .ch.card.lv .cap small .ep-t { color: var(--fg); opacity: .85; }
+.ch.card.lv .fav { top: 50%; right: 8px; transform: translateY(-50%); width: 24px; height: 24px; padding: 4px; background: none; }
 .ch {
   position: absolute; left: 0; right: 0; height: var(--row);
   display: grid; grid-template-columns: 44px 40px minmax(0, 1fr) auto; align-items: center; gap: 10px;
@@ -841,7 +844,7 @@ html.is-android body.ui2 .home, html.is-android body.ui2 .rundown { grid-column:
     'html.is-tizen body.ui2 .h-search input { font-size: 19px; }' +
     'html.is-tizen body.ui2 .h-links button { font-size: 20px; padding: 12px 16px; }' +
     'html.is-tizen body.ui2 .h-acc { width: 60% !important; }' +
-    'html.is-tizen .ch.card.lv .cap b { font-size: 17px; } html.is-tizen .ch.card.lv .cap small { font-size: 13px; } html.is-tizen .ch.card.lv .pst { font-size: 34px; } html.is-tizen .ch.card.lv .cno { font-size: 14px; }' +
+    'html.is-tizen .ch.card.lv .cap b { font-size: 19px; } html.is-tizen .ch.card.lv .cap small { font-size: 14px; } html.is-tizen .ch.card.lv .pst { font-size: 24px; } html.is-tizen .ch.card.lv .cno { font-size: 12px; }' +
     '#tzp { width: ' + (100) + 'vw; height: 100vh; right: auto; bottom: auto; transform: scale(' + (1 / Z) + '); transform-origin: 0 0; }';
   var st = document.createElement('style'); st.textContent = css; document.head.appendChild(st);
 
@@ -2067,7 +2070,7 @@ function posterOn() { return !sv && gridKind() && !!POSTER[kind]; }
 function grid() {
   if (!posterOn()) { var h = rowH(); return { cols: 1, w: 0, h: h }; }
   var W = listEl.clientWidth || 320;
-  if (kind === 'live') { var lc = Math.max(2, Math.floor(W / (TIZEN ? 290 : 230))), lw = W / lc; return { cols: lc, w: lw, h: Math.round(lw * 0.42 + 70) }; }
+  if (kind === 'live') { var lc = TIZEN ? 3 : Math.max(2, Math.floor(W / 280)), lw = W / lc; return { cols: lc, w: lw, h: TIZEN ? 96 : 78 }; }   // yatık kart: solda logo, sağda ad + program
   var cols = Math.max(2, Math.floor(W / 136)), w = W / cols;
   return { cols: cols, w: w, h: Math.round((w - 12) * 1.5 + 58) };
 }
