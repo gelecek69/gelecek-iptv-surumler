@@ -1,4 +1,4 @@
-<script>window.__tvBuilt="2.1.26";</script>
+<script>window.__tvBuilt="2.1.27";</script>
 <title>Gelecek IPTV</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -364,7 +364,12 @@ body.is-fs.fs-idle, body.is-fs.fs-idle * { cursor: none !important; }
 .field input { background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; min-width: 0; }
 .hint { font-size: 12px; color: var(--muted); margin: 0; }
 .pl-row { min-width: 0; display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; }
-.pl-row div { flex: 1; min-width: 0; }
+.pl-row div, .pl-row .pl-pick { flex: 1; min-width: 0; }
+.pl-pick { background: none; border: 0; border-radius: 6px; padding: 2px 4px; color: var(--fg); text-align: left; font: inherit; cursor: pointer; }
+.pl-pick:hover b { color: var(--tally); }
+.pl-pick:focus-visible { outline: 2px solid var(--tally); outline-offset: 2px; }
+.pl-row.on { border-color: #2b5383; }
+.pl-row .badge.on { color: var(--ok, #3cb371); border-color: currentColor; }
 .pl-row .icon-btn { flex: none; }
 .pl-row.editing { border-color: var(--tally); }
 .pl-row .badge { display: inline-block; margin-left: 6px; vertical-align: 2px; font: 600 10px/1 var(--f-body); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); border: 1px solid var(--line); border-radius: 4px; padding: 3px 5px; }
@@ -1218,7 +1223,7 @@ html.is-android body.ui2 .home, html.is-android body.ui2 .rundown { grid-column:
   // Yazı kutuları / açılır listeler: ▲ ▼ ile kutudan çıkılır (TV kumandasında başka yol yok), OK ile klavye açılır
   var FOC = 'button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea, a[href], [tabindex]:not([tabindex="-1"])';
   function focusables() {
-    var mods = [].filter.call(document.querySelectorAll('.modal'), function (m) { return !m.hidden && m.offsetParent !== null; });
+    var mods = [].filter.call(document.querySelectorAll('.modal'), function (m) { return !m.hidden && m.getClientRects().length > 0; });   // .modal sabit konumlu: offsetParent hep boş, o yüzden kutu sayısına bakılır
     var root = mods.length ? mods[mods.length - 1] : document;
     return [].filter.call(root.querySelectorAll(FOC), function (x) { var r = x.getBoundingClientRect(); return r.width > 0 && r.height > 0 && !x.closest('[hidden]'); });
   }
@@ -4180,8 +4185,9 @@ function renderPlRows() {
   renderShareRow();
   $('plRows').innerHTML = playlists.map(function (p) {
     var t = plType(p), i = p.info || {}, expired = i.exp && i.exp < now;
-    return '<div class="pl-row' + (p.id === editId ? ' editing' : '') + '"><div><b>' + esc(p.name) + '</b><span class="badge">' + TYPE_LABEL[t] + '</span>' +
-      '<small' + (expired ? ' class="warn"' : '') + '>' + esc(plDetail(p)) + (expired ? ' · süresi dolmuş' : '') + '</small></div>' +
+    var on = p.id === activeId;
+    return '<div class="pl-row' + (p.id === editId ? ' editing' : '') + (on ? ' on' : '') + '"><button type="button" class="pl-pick" data-pick="' + esc(p.id) + '" aria-current="' + on + '" title="' + (on ? 'Şu an açık liste' : 'Bu listeye geç') + '"><b>' + esc(p.name) + '</b><span class="badge">' + TYPE_LABEL[t] + '</span>' + (on ? '<span class="badge on">AÇIK</span>' : '') +
+      '<small' + (expired ? ' class="warn"' : '') + '>' + esc(plDetail(p)) + (expired ? ' · süresi dolmuş' : '') + '</small></button>' +
       (t === 'm3u' || t === 'xtream' ? '<button class="icon-btn" data-refresh="' + p.id + '" title="Yenile" aria-label="Yenile">' + ICON.refresh + '</button>' : '') +
       (t !== 'demo' && (BAYI || !p.shared) ? '<button class="icon-btn" data-edit="' + p.id + '" title="Düzenle" aria-label="Düzenle">' + ICON.edit + '</button>' : '') +
       (BAYI && (t === 'm3u' || t === 'xtream') ? '<button class="icon-btn" data-share="' + p.id + '" title="Program + bu IPTV listesini gönder" aria-label="Program + bu IPTV listesini gönder">' + ICON.share + '</button>' : '') +
@@ -4333,6 +4339,13 @@ updRender();
 $('mClose').onclick = closeModal;
 $('modal').addEventListener('click', function (e) { if (e.target === $('modal')) closeModal(); });
 $('plRows').addEventListener('click', function (e) {
+  var pk = e.target.closest('[data-pick]');
+  if (pk) {   // listeye geç
+    if (pk.dataset.pick === activeId) return toast('Bu liste zaten açık');
+    activeId = pk.dataset.pick; lsSet('active', activeId); group = '__all'; query = ''; $('q').value = ''; $('plSelect').value = activeId;
+    renderPlRows(); closeModal(); loadPlaylist(); if (UI2) goHome();
+    return toast('“' + ((activePl() || {}).name || 'Liste') + '” açılıyor');
+  }
   var d = e.target.closest('[data-del]'), r = e.target.closest('[data-refresh]'), ed = e.target.closest('[data-edit]'), sh = e.target.closest('[data-share]');
   if (ed) return startEdit(ed.dataset.edit);
   if (sh) return openShare(sh.dataset.share);
