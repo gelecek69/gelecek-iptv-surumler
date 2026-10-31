@@ -1,4 +1,4 @@
-<script>window.__tvBuilt="2.1.19";</script>
+<script>window.__tvBuilt="2.1.20";</script>
 <title>Gelecek IPTV</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -899,9 +899,9 @@ html.is-android body.ui2 .home, html.is-android body.ui2 .rundown { grid-column:
   }
 
   /* ---------- oynatma ---------- */
-  var stoppedAt = 0, zapT2 = 0, prepT = 0, bufT = 0, BUF_MS = window.__tzBufMs || 10000;
+  var stoppedAt = 0, zapT2 = 0, prepT = 0, bufT = 0, bufOn = false, BUF_MS = window.__tzBufMs || 10000;
   function stopAv() {
-    clearTimeout(prepT); clearTimeout(bufT);
+    clearTimeout(prepT); clearTimeout(bufT); bufOn = false;
     var s0 = state();
     try { if (s0 !== 'NONE' && s0 !== 'IDLE') av.stop(); } catch (e) {}
     try { av.close(); } catch (e) {}
@@ -928,12 +928,16 @@ html.is-android body.ui2 .home, html.is-android body.ui2 .rundown { grid-column:
       av.setListener({
         // Canlıda yükleme 10 sn'de bitmezse (görüntü gider, ses sürer — sağlayıcı yavaşken) kendiliğinden yeniden bağlan;
         // aynı kanalda tekrarlarsa diğer biçim (HLS ↔ TS) denenir
+        // Yalnız oynarken başlayan yüklemede (açılıştaki ilk yükleme sayılmaz; Samsung onun bitişini her zaman bildirmiyor)
         onbufferingstart: function () {
           if (ch !== c) return; status('Yükleniyor…');
-          if (!isVod(c)) { clearTimeout(bufT); bufT = setTimeout(function () { if (ch === c && open) stalled(c); }, BUF_MS); }
+          if (!isVod(c) && state() === 'PLAYING') {
+            bufOn = true; clearTimeout(bufT);
+            bufT = setTimeout(function () { if (ch === c && open && bufOn && state() === 'PLAYING') stalled(c); }, BUF_MS);
+          }
         },
-        onbufferingprogress: function (p) { if (ch === c) status('Yükleniyor %' + p); },
-        onbufferingcomplete: function () { if (ch === c) { clearTimeout(bufT); status(''); } },
+        onbufferingprogress: function (p) { if (ch !== c) return; if (p >= 100) { bufOn = false; clearTimeout(bufT); status(''); } else status('Yükleniyor %' + p); },
+        onbufferingcomplete: function () { if (ch === c) { bufOn = false; clearTimeout(bufT); status(''); } },
         oncurrentplaytime: function () {},
         onstreamcompleted: function () {
           if (ch !== c) return;
@@ -958,7 +962,7 @@ html.is-android body.ui2 .home, html.is-android body.ui2 .rundown { grid-column:
         if (ch !== c) return;
         retry = 0; pickTracks(c);
         var p = isVod(c) && H().posGet && H().posGet(c);
-        var go = function () { try { av.play(); } catch (e) {} status(''); };
+        var go = function () { bufOn = false; clearTimeout(bufT); try { av.play(); } catch (e) {} status(''); };
         if (p && p.t > 15) av.seekTo(Math.floor(p.t * 1000), function () { toast('Kaldığın yerden: ' + fmt(p.t * 1000)); go(); }, go);
         else go();
         tickT = setInterval(function () { if (open) { updBar(); extTick(); } }, 500);
