@@ -1,4 +1,4 @@
-<script>window.__tvBuilt="2.1.18";</script>
+<script>window.__tvBuilt="2.1.19";</script>
 <title>Gelecek IPTV</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -899,9 +899,9 @@ html.is-android body.ui2 .home, html.is-android body.ui2 .rundown { grid-column:
   }
 
   /* ---------- oynatma ---------- */
-  var stoppedAt = 0, zapT2 = 0, prepT = 0;
+  var stoppedAt = 0, zapT2 = 0, prepT = 0, bufT = 0, BUF_MS = window.__tzBufMs || 10000;
   function stopAv() {
-    clearTimeout(prepT);
+    clearTimeout(prepT); clearTimeout(bufT);
     var s0 = state();
     try { if (s0 !== 'NONE' && s0 !== 'IDLE') av.stop(); } catch (e) {}
     try { av.close(); } catch (e) {}
@@ -926,9 +926,14 @@ html.is-android body.ui2 .home, html.is-android body.ui2 .rundown { grid-column:
       c._hlsTry = hls;
       av.open(url);
       av.setListener({
-        onbufferingstart: function () { if (ch === c) status('Yükleniyor…'); },
+        // Canlıda yükleme 10 sn'de bitmezse (görüntü gider, ses sürer — sağlayıcı yavaşken) kendiliğinden yeniden bağlan;
+        // aynı kanalda tekrarlarsa diğer biçim (HLS ↔ TS) denenir
+        onbufferingstart: function () {
+          if (ch !== c) return; status('Yükleniyor…');
+          if (!isVod(c)) { clearTimeout(bufT); bufT = setTimeout(function () { if (ch === c && open) stalled(c); }, BUF_MS); }
+        },
         onbufferingprogress: function (p) { if (ch === c) status('Yükleniyor %' + p); },
-        onbufferingcomplete: function () { if (ch === c) status(''); },
+        onbufferingcomplete: function () { if (ch === c) { clearTimeout(bufT); status(''); } },
         oncurrentplaytime: function () {},
         onstreamcompleted: function () {
           if (ch !== c) return;
@@ -942,6 +947,10 @@ html.is-android body.ui2 .home, html.is-android body.ui2 .rundown { grid-column:
       arApply();
       var ua = c.ua || (H().ua && H().ua()); if (ua) { try { av.setStreamingProperty('USER_AGENT', ua); } catch (e) {} }
       if (isVod(c)) { try { av.setTimeoutForBuffering && av.setTimeoutForBuffering(20); } catch (e) {} }
+      else {   // canlı: başlarken ve takılınca biraz daha biriktir (kısa takılmaları emer)
+        try { av.setBufferingParam('PLAYER_BUFFER_FOR_PLAY', 'PLAYER_BUFFER_SIZE_IN_SECOND', 3); } catch (e) {}
+        try { av.setBufferingParam('PLAYER_BUFFER_FOR_RESUME', 'PLAYER_BUFFER_SIZE_IN_SECOND', 5); } catch (e) {}
+      }
       clearTimeout(prepT);
       prepT = setTimeout(function () { if (ch === c && open && state() !== 'PLAYING' && state() !== 'PAUSED') again('Yayın yanıt vermedi'); }, isVod(c) ? 25000 : 12000);
       av.prepareAsync(function () {
@@ -956,6 +965,13 @@ html.is-android body.ui2 .home, html.is-android body.ui2 .rundown { grid-column:
         loadExt(c);
       }, function (e) { if (ch === c) again('Yayın açılamadı (' + e + ')'); });
     } catch (e) { again('Yayın açılamadı (' + (e && e.message || e) + ')'); }
+  }
+  function stalled(c) {
+    var now = Date.now();
+    c._stallN = (c._lastStall && now - c._lastStall < 120000) ? (c._stallN || 0) + 1 : 1; c._lastStall = now;
+    if (c._stallN >= 2) { c._tsOnly = !c._tsOnly; c._stallN = 0; }   // bu biçimde takılıp duruyor: öbürünü dene
+    retry = 0; stopAv(); status('Görüntü takıldı, yeniden bağlanıyor…');
+    clearTimeout(retryT); retryT = setTimeout(function () { if (ch === c && open) start(); }, 300);
   }
   function again(msg) {
     var c = ch; clearTimeout(retryT);
