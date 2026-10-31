@@ -1,4 +1,4 @@
-<script>window.__tvBuilt="2.1.21";</script>
+<script>window.__tvBuilt="2.1.22";</script>
 <title>Gelecek IPTV</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -457,6 +457,7 @@ body.ui2 .home { display: flex; flex-direction: column; gap: 18px; padding: 22px
 .h-tile small { font: 500 13px/1 var(--f-body); letter-spacing: .12em; color: #8fb3d6; }
 .h-tile small i { font-style: normal; font-family: var(--f-mono); letter-spacing: 0; }
 .h-tile:hover { border-color: #2b5383; }
+.h-tile.loading small i { font-style: italic; opacity: .7; }
 .home:not(:focus-within) .h-tile[aria-current="true"], .h-tile:focus-visible { border: 2px solid var(--tally); background: #0d2340; box-shadow: 0 0 0 4px rgba(255,159,28,.14); outline: none; }
 .h-links { display: flex; flex-direction: column; gap: 2px; border-top: 1px solid var(--line); padding-top: 14px; }
 .h-links button { display: flex; align-items: center; gap: 14px; background: none; border: 0; border-radius: 10px; padding: 11px 12px; color: #c4d4e6; font: 500 17px/1 var(--f-body); text-align: left; }
@@ -1785,18 +1786,21 @@ function applyText(text) {
   renderKinds(); renderGroups(); refilter(true);
 }
 
+var listLoading = false;
 function loadPlaylist(force) {
   var pl = activePl();
   if (pl.id === DEMO_ID) { applyText(DEMO_M3U); return Promise.resolve(); }
+  // büyük listede (TV'de) okuyup işlemek birkaç saniye sürer: o arada ana sayfa son bilinen sayılarla "yükleniyor" gösterir
+  listLoading = !data.channels.length; renderHome();
   return cacheGet(pl.id).then(function (c) {
     var fresh = c && Date.now() - c.at < 12 * 3600e3;
-    if (c) applyText(c.text);                      // instant start from cache
+    if (c) { applyTextTimed(c.text, pl); }        // instant start from cache
     if (c && (fresh || plType(pl) === 'file') && !force) return;
     if (!c) showListMsg(plType(pl) === 'xtream' ? 'Hesaba bağlanılıyor…' : 'Liste indiriliyor…');
     return plText(pl).then(function (text) {
       cachePut(pl.id, text);
       if (plType(pl) === 'xtream') secSet('playlists', playlists);   // hesap bilgisi (bitiş, bağlantı) güncellendi
-      applyText(text);
+      applyTextTimed(text, pl);
       if (c) toast('Liste güncellendi · ' + data.channels.length + ' kanal');
     }).catch(function (e) {
       if (!c) showListMsg('Liste yüklenemedi: ' + e.message + (PLATFORM === 'web' ? '. Sağlayıcı tarayıcı erişimine izin vermiyor olabilir; ayarlardan CORS proxy ekle ya da Windows/Android sürümünü kullan.' : ''));
@@ -1805,21 +1809,30 @@ function loadPlaylist(force) {
   });
 }
 
+function applyTextTimed(text, pl) {
+  var t0 = Date.now(); applyText(text); listLoading = false;
+  var hn = lsGet('homeN', {}) || {}; hn[pl.id] = { live: cat.live.length, movie: cat.movie.length, series: cat.series.length }; lsSet('homeN', hn);
+  renderHome();
+  if (!window.__bootMs) { try { window.__bootMs = Math.round(Date.now() - (performance.timeOrigin || performance.timing.navigationStart)); window.__parseMs = Date.now() - t0; } catch (e) {} }
+}
 function showListMsg(m) { innerEl.style.height = 'auto'; innerEl.innerHTML = '<div class="empty">' + esc(m) + '</div>'; $('listCount').textContent = ''; }
 
 /* ================= katalog: canlı / film / dizi ================= */
 function buildCatalog() {
-  var live = [], movie = [], series = [], byKey = {}, smap = {};
+  var live = [], movie = [], series = [], byKey = {}, smap = {}, gAdult = {}, gBase = {}, nKey = {};   // grup başına bir kere hesaplanır (TV'de büyük listede hızlı açılış)
   data.channels.forEach(function (c) {
     byKey[c.key] = c;
-    c.adult = isAdultGroup(c.group) || ADULT_NAME.test(String(c.name).toLocaleLowerCase('tr'));
+    var ga = gAdult[c.group]; if (ga === undefined) ga = gAdult[c.group] = isAdultGroup(c.group);
+    c.adult = ga || ADULT_NAME.test(String(c.name).toLowerCase());
     if (c.kind === 'movie') movie.push(c);
     else if (c.kind === 'series') series.push(c);
     else if (c.kind === 'episode') {
       // M3U'daki bölümleri dizi adına göre topla
       // Sezonları ayrı gruplarda olan diziler ("X 1. Sezon", "X 2. Sezon") tek dizide birleşir
-      var bg = M3U.stripSeason(c.group) || c.group;
-      var sk = norm(bg) + '|' + (M3U.seriesKey(c.seriesName || c.name) || norm(c.seriesName || c.name)), s = smap[sk];
+      var gb = gBase[c.group]; if (!gb) { var b0 = M3U.stripSeason(c.group) || c.group; gb = gBase[c.group] = [b0, norm(b0)]; }
+      var bg = gb[0];
+      var snm = c.seriesName || c.name, nk = nKey[snm]; if (nk === undefined) nk = nKey[snm] = (M3U.seriesKey(snm) || norm(snm));
+      var sk = gb[1] + '|' + nk, s = smap[sk];
       if (!s) {
         s = smap[sk] = { name: c.seriesName || c.name, group: bg, logo: c.logo, kind: 'series', episodes: [], key: M3U.hashKey('series|' + sk), url: '', adult: c.adult };
         series.push(s); byKey[s.key] = s;
@@ -4197,7 +4210,7 @@ $('fCancel').onclick = resetForm;
 function openModal() {
   if (DESKTOP && DESKTOP.version) DESKTOP.version().then(function (v) { $('appVer').textContent = 'Gelecek IPTV ' + v + (MEDIA && MEDIA.ffmpeg ? ' · ffmpeg hazır' : MEDIA ? ' · ffmpeg yok' : ''); }).catch(function () {});
   else if (NATIVE && NATIVE.appVersionName) { try { $('appVer').textContent = 'Gelecek IPTV ' + NATIVE.appVersionName(); } catch (e) {} }
-  else if (TIZEN && window.__tvVer) $('appVer').textContent = 'Gelecek IPTV ' + window.__tvVer + ' · Samsung TV (kendiliğinden güncellenir)';
+  else if (TIZEN && window.__tvVer) $('appVer').textContent = 'Gelecek IPTV ' + window.__tvVer + ' · Samsung TV (kendiliğinden güncellenir)' + (window.__bootMs ? ' · açılış ' + (window.__bootMs / 1000).toFixed(1) + ' sn (liste işleme ' + (window.__parseMs / 1000).toFixed(1) + ' sn)' : '');
   else $('appVer').textContent = 'Gelecek IPTV (web)';
   resetForm(); renderAdultHint(); subFormFill(); $('fUa').value = settings.ua || ''; $('fOsKey').value = settings.osKey || ''; $('osKeyField').hidden = !MEDIA; $('fProxy').value = settings.proxy || ''; $('proxyField').hidden = PLATFORM !== 'web'; $('modal').hidden = false; if (TIZEN) { var tb = document.querySelector('[data-src][aria-selected="true"]'); if (tb) tb.focus(); } else $('fName').focus(); }
 function closeModal() {
@@ -4832,13 +4845,16 @@ function uiApply() {
 }
 function renderHome() {
   if (!UI2) return;
-  [].forEach.call(document.querySelectorAll('#home [data-hn]'), function (i) { i.textContent = kindItems(i.dataset.hn).length.toLocaleString('tr-TR'); });
+  var last = listLoading ? ((lsGet('homeN', {}) || {})[(activePl() || {}).id] || null) : null;
+  [].forEach.call(document.querySelectorAll('#home [data-hn]'), function (i) { i.textContent = listLoading ? 'yükleniyor…' : kindItems(i.dataset.hn).length.toLocaleString('tr-TR'); });
   [].forEach.call(document.querySelectorAll('.h-tile'), function (t) {
-    var n = kindItems(t.dataset.hk).length; t.setAttribute('aria-current', t.dataset.hk === kind); t.hidden = t.dataset.hk !== 'live' && !n;
+    var n = last ? last[t.dataset.hk] : kindItems(t.dataset.hk).length; t.setAttribute('aria-current', t.dataset.hk === kind); t.hidden = t.dataset.hk !== 'live' && !n;
+    t.classList.toggle('loading', !!listLoading);
   });
   var pl = activePl(), i = (pl && pl.info) || {}, bits = [];
   if (i.exp) bits.push('Bitiş ' + fmtDate(i.exp));
   if (i.max) bits.push(i.act + '/' + i.max + ' bağlantı');
+  if (listLoading) bits.unshift('Kanallar yükleniyor…');
   $('hAcc').textContent = bits.join(' · ');
 }
 function u2Head() {
