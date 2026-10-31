@@ -1,4 +1,4 @@
-<script>window.__tvBuilt="2.1.16";</script>
+<script>window.__tvBuilt="2.1.17";</script>
 <title>Gelecek IPTV</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -2896,7 +2896,7 @@ function videoFrames(v) {
 // Donma bekçisi: önce tampondaki boşluğun üstünden atlamayı dener, olmazsa yeniden bağlanır
 Pane.prototype.watch = function (my) {
   var self = this, video = this.video;
-  clearInterval(this.watchT); this.lastTime = -1; this.stallTicks = 0; this.lastFr = null; this.frStall = 0; this.lastBE = 0; this.netStall = 0;
+  clearInterval(this.watchT); this.lastTime = -1; this.stallTicks = 0; this.lastFr = null; this.frStall = 0; this.lastBE = 0; this.netStall = 0; this.rebuf = 0;
   var t0 = Date.now();
   this.watchT = setInterval(function () {
     if (my !== self.token) return clearInterval(self.watchT);
@@ -2904,6 +2904,17 @@ Pane.prototype.watch = function (my) {
     var vod = isVod(self);
     if (video.paused && vod && (video.readyState > 2 || (self.lastTime > 0 && !video.seeking))) return;
     // canlıda kimse duraklatmadan durduysa (tarayıcı kendi durdurdu) tekrar oynat
+    var ahead = Math.max(0, bufEnd(video) - video.currentTime);
+    // Canlı TS'de tampon boşaldıysa (sağlayıcı yavaş, ör. derbi maçında): hemen yeniden bağlanmak yerine birkaç saniye
+    // biriktirip öyle devam et — sonraki kısa takılmaları bu yedek emer, ekran sürekli "yükleniyor"a düşmez.
+    if (self.rebuf) {
+      var be0 = bufEnd(video);
+      if (be0 > (self.lastBE || 0) + 0.05) { self.lastBE = be0; self.netStall = 0; } else self.netStall = (self.netStall || 0) + 1;
+      self.rebuf++;
+      if (ahead >= 4 || (ahead >= 1.5 && self.rebuf > 10)) { self.rebuf = 0; self.stallTicks = 0; self.lastTime = video.currentTime; self.frStall = 0; self.lastFr = null; if (self.status) self.status('ok'); video.play().catch(function () {}); return; }
+      if (self.netStall >= 8 || self.rebuf > 20) { self.rebuf = 0; return self.recover('Yayın akışı kesildi'); }
+      return;
+    }
     if (video.paused && !vod && self.lastTime > 0 && !self.userPaused) video.play().catch(function () {});
     // Görüntü karesi sayacı: ses akıp görüntü donduğunda saat ilerler ama kare gelmez — bunu da donma say
     var fr = videoFrames(video);
@@ -2913,12 +2924,22 @@ Pane.prototype.watch = function (my) {
     }
     // Gelen veri bekçisi (canlı): sağlayıcı bağlantıyı sessizce keserse tampon büyümez. Görüntü donmadan
     // (biriken kısım bitmeden) yeniden bağlan — kullanıcının aynı kanala tekrar tıklamasının otomatiği.
+    // Tamponda yeterince görüntü varken bekle (veri birazdan gelebilir); biriken kısım bitmek üzereyken yeniden bağlan.
     if (!vod && self.lastTime > 0) {
       var be = bufEnd(video);
       if (be > (self.lastBE || 0) + 0.05) { self.lastBE = be; self.netStall = 0; }
       else if (!document.hidden) {
         self.netStall = (self.netStall || 0) + 1;
-        if (self.netStall >= ((self.mts || self.ff) ? 5 : 14)) { self.netStall = 0; return self.recover('Yayın akışı kesildi'); }
+        if ((self.netStall >= ((self.mts || self.ff) ? 5 : 14) && ahead < 2.5) || self.netStall >= 25) { self.netStall = 0; return self.recover('Yayın akışı kesildi'); }
+      }
+    }
+    // tampon boşaldı / sürekli boşalıyor ama veri hâlâ geliyor (görüntü takılarak akıyor): yeniden bağlanmak yerine biriktir
+    if (!vod && self.mts && self.lastTime > 0 && !video.paused && !document.hidden) {
+      self.lowAhead = ahead < 0.6 ? (self.lowAhead || 0) + 1 : 0;
+      if (self.lowAhead >= 2 && self.netStall < 3) {
+        self.rebuf = 1; self.lowAhead = 0; self.stallTicks = 0; video.pause();
+        if (self.status) self.status('load', 'Yayın yavaş geliyor, biriktiriliyor…');
+        return;
       }
     }
     if (video.currentTime !== self.lastTime) { self.lastTime = video.currentTime; self.stallTicks = 0; return; }
