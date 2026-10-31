@@ -1,4 +1,4 @@
-<script>window.__tvBuilt="2.1.17";</script>
+<script>window.__tvBuilt="2.1.18";</script>
 <title>Gelecek IPTV</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -1256,17 +1256,25 @@ html.is-android body.ui2 .home, html.is-android body.ui2 .rundown { grid-column:
   function lsg(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
   function lsd(k) { try { localStorage.removeItem(k); } catch (e) {} }
   var TV_VER = lsg('tv.cur') || window.__tvBuilt || '';
+  window.__tvVer = TV_VER;
+  // sürüm ana sayfada da görünsün (sağ altta küçük)
+  setTimeout(function () {
+    var h = document.getElementById('home'); if (!h || !TV_VER || document.getElementById('tvVerTag')) return;
+    var d = document.createElement('div'); d.id = 'tvVerTag'; d.textContent = 'Sürüm ' + TV_VER;
+    d.style.cssText = 'position:fixed;right:22px;bottom:14px;font-size:13px;color:#6f86a3;pointer-events:none;z-index:1';
+    h.appendChild(d);
+  }, 500);
   // yeni sürüm sorunsuz açıldı (Samsung oynatıcısı da hazır): onay; gelmezse yükleyici bir sonraki açılışta bu sürümü atlar
   if (lsg('tv.boot') === '1') setTimeout(function () { if (window.webapis && webapis.avplay && window.TizenPlayer) lsd('tv.boot'); }, 6000);
   setTimeout(function () {
     var a = document.getElementById('appVer'); if (a && TV_VER) a.textContent = 'Gelecek IPTV ' + TV_VER + ' · Samsung TV (kendiliğinden güncellenir)';
     var n = lsg('tv.new'); if (n) { lsd('tv.new'); if (H().toast) H().toast('Gelecek IPTV güncellendi: ' + n); }
   }, 1800);
-  // TV uygulamayı arka planda açık tutar: geri dönüldüğünde (6 saatte bir) yeni sürüme bakılır; yayın açık değilse yükleyiciyle yeniden açılır
+  // TV uygulamayı arka planda açık tutar: geri dönüldüğünde (saatte bir) yeni sürüme bakılır; yayın açık değilse yükleyiciyle yeniden açılır
   var updLast = Date.now();
   function vcmp(a, b) { a = String(a || '0').split('.'); b = String(b || '0').split('.'); for (var i = 0; i < 3; i++) { var d = (+a[i] || 0) - (+b[i] || 0); if (d) return d; } return 0; }
   document.addEventListener('visibilitychange', function () {
-    if (document.hidden || open || !TV_VER || Date.now() - updLast < 6 * 3600e3 || lsg('tv.noupd')) return;
+    if (document.hidden || open || !TV_VER || Date.now() - updLast < 3600e3 || lsg('tv.noupd')) return;
     updLast = Date.now();
     var x = new XMLHttpRequest();
     x.onload = function () { try { var j = JSON.parse(x.responseText); if (j.v && vcmp(j.v, TV_VER) > 0 && j.v !== lsg('tv.bad') && !open) location.replace('index.html'); } catch (e) {} };
@@ -4149,6 +4157,7 @@ $('fCancel').onclick = resetForm;
 function openModal() {
   if (DESKTOP && DESKTOP.version) DESKTOP.version().then(function (v) { $('appVer').textContent = 'Gelecek IPTV ' + v + (MEDIA && MEDIA.ffmpeg ? ' · ffmpeg hazır' : MEDIA ? ' · ffmpeg yok' : ''); }).catch(function () {});
   else if (NATIVE && NATIVE.appVersionName) { try { $('appVer').textContent = 'Gelecek IPTV ' + NATIVE.appVersionName(); } catch (e) {} }
+  else if (TIZEN && window.__tvVer) $('appVer').textContent = 'Gelecek IPTV ' + window.__tvVer + ' · Samsung TV (kendiliğinden güncellenir)';
   else $('appVer').textContent = 'Gelecek IPTV (web)';
   resetForm(); renderAdultHint(); subFormFill(); $('fUa').value = settings.ua || ''; $('fOsKey').value = settings.osKey || ''; $('osKeyField').hidden = !MEDIA; $('fProxy').value = settings.proxy || ''; $('proxyField').hidden = PLATFORM !== 'web'; $('modal').hidden = false; if (TIZEN) { var tb = document.querySelector('[data-src][aria-selected="true"]'); if (tb) tb.focus(); } else $('fName').focus(); }
 function closeModal() {
