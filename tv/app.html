@@ -1,4 +1,4 @@
-<script>window.__tvBuilt="2.1.32";</script>
+<script>window.__tvBuilt="2.1.33";</script>
 <title>Gelecek IPTV</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -1342,7 +1342,7 @@ html.is-android body.ui2 .home, html.is-android body.ui2 .rundown { grid-column:
         e.preventDefault();
         var used = window.__iptvBackKey && window.__iptvBackKey();
         if (used) return;
-        if (Date.now() - (close.lastBack || 0) < 2000) { try { tizen.application.getCurrentApplication().exit(); } catch (x) {} }
+        if (Date.now() - (close.lastBack || 0) < 2000) { try { if (window.__tvBootOk) window.__tvBootOk(); tizen.application.getCurrentApplication().exit(); } catch (x) {} }
         else { close.lastBack = Date.now(); if (H().toast) H().toast('Çıkmak için Geri\'ye bir kez daha bas'); }
       }
       return;
@@ -1392,7 +1392,12 @@ html.is-android body.ui2 .home, html.is-android body.ui2 .rundown { grid-column:
     h.appendChild(d);
   }, 500);
   // yeni sürüm sorunsuz açıldı (Samsung oynatıcısı da hazır): onay; gelmezse yükleyici bir sonraki açılışta bu sürümü atlar
-  if (lsg('tv.boot') === '1') setTimeout(function () { if (window.webapis && webapis.avplay && window.TizenPlayer) lsd('tv.boot'); }, 6000);
+  // Onay erken verilir: sayfa buraya kadar çalıştıysa sürüm sağlamdır. (Eskiden 6 sn bekleniyordu; bu sürede
+  // uygulamadan çıkılınca yükleyici yeni sürümü "bozuk" sayıp TV'deki eski sürümü açıyordu.)
+  function bootOk() { if (lsg('tv.boot') === '1' && window.TizenPlayer) lsd('tv.boot'); }
+  if (lsg('tv.boot') === '1') { setTimeout(bootOk, 800); document.addEventListener('DOMContentLoaded', function () { setTimeout(bootOk, 300); }); }
+  window.__tvBootOk = bootOk;
+  window.addEventListener('pagehide', bootOk); document.addEventListener('visibilitychange', function () { if (document.hidden) bootOk(); });
   setTimeout(function () {
     var a = document.getElementById('appVer'); if (a && TV_VER) a.textContent = 'Gelecek IPTV ' + TV_VER + ' · Samsung TV (kendiliğinden güncellenir)';
     var n = lsg('tv.new'); if (n) { lsd('tv.new'); if (H().toast) H().toast('Gelecek IPTV güncellendi: ' + n); }
