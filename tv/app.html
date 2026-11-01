@@ -1,4 +1,4 @@
-<script>window.__tvBuilt="2.1.34";</script>
+<script>window.__tvBuilt="2.1.35";</script>
 <title>Gelecek IPTV</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -252,7 +252,7 @@ button { cursor: pointer; }
 .txt-btn { display: inline-flex; align-items: center; gap: 6px; width: auto; padding: 0 11px; font-weight: 600; font-size: 13px; }
 .txt-btn svg { width: 17px; height: 17px; flex: none; }
 #btnUpd.has-upd, #hlUpdate.has-upd { border-color: var(--tally); color: var(--tally); }
-@media (max-width: 1500px) { .txt-btn { padding: 0; width: 40px; justify-content: center; } .txt-btn span { display: none; } }   /* dar pencerede yalnız simge */
+@media (max-width: 2400px) { .txt-btn { padding: 0; width: 40px; justify-content: center; } .txt-btn span { display: none; } }   /* alt çubuk tek satırda kalsın: Hesap / Güncelle yalnız simge (ana sayfada yazılı hali var) */   /* dar pencerede yalnız simge */
 .rec-btn { gap: 7px; display: inline-flex; align-items: center; padding: 0 12px; font-weight: 600; }
 .rec-btn i { width: 11px; height: 11px; border-radius: 50%; background: var(--onair); display: block; }
 .rec-btn[aria-pressed="true"] { background: var(--onair); border-color: var(--onair); color: #fff; }
@@ -520,7 +520,7 @@ body.ui2 .u2-seasons:not([hidden]) { display: grid; grid-template-columns: repea
 .season[aria-selected="true"] small { color: #3a2508; }
 .season:focus-visible { outline: 2px solid var(--sky); outline-offset: 2px; }
 /* gruplar paneli (Tüm gruplar / Kategoriler): eski grup sütunu listenin üstüne açılır */
-body.ui2.grp-open .rail { display: flex; position: fixed; left: 0; top: 0; bottom: 0; width: max(var(--lw, 340px), 300px); z-index: 9; box-shadow: 16px 0 40px rgba(0,0,0,.5); }
+body.ui2.grp-open .rail { display: flex; position: fixed; left: 0; top: 0; bottom: 0; width: max(var(--lw, 340px), 300px); z-index: 9; box-shadow: 16px 0 40px rgba(0,0,0,.5); transform: translateZ(0); will-change: transform; }   /* kendi katmanı: yayın oynarken Windows'ta hemen çizilsin */
 body.ui2 .rail .brand { display: none; }
 body.ui2 .rail .pl-select { display: none; }
 .grp-close { display: none; }
@@ -5211,6 +5211,7 @@ function goHome() {
 }
 function grpPanel(on) {
   grpOpen = !!on; uiApply();
+  var rl = document.querySelector('.rail'); if (rl) { void rl.offsetHeight; requestAnimationFrame(function () { rl.style.outline = '1px solid transparent'; requestAnimationFrame(function () { rl.style.outline = ''; }); }); }   // çizimi zorla (fare oynatılmadan da görünsün)
   if (on) { var b = $('groups').querySelector('[aria-current="true"]') || $('groups').querySelector('.grp'); if (b) b.focus(); }
   else if (uiMode === 'list') listEl.focus();
 }
