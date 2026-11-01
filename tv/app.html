@@ -1,4 +1,4 @@
-<script>window.__tvBuilt="2.1.42";</script>
+<script>window.__tvBuilt="2.1.43";</script>
 <title>Gelecek IPTV</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -1218,6 +1218,7 @@ html.is-android body.ui2 .home, html.is-android body.ui2 .rundown { grid-column:
     } });
     items.push({ h: 'Diğer', label: 'Oynatıcıyı sıfırla (ses var görüntü yoksa)', ar: 1, run: function () { resetPlayer('menu'); } });
     items.push({ h: 'Diğer', label: 'Güncellemeleri denetle (şu an ' + (TV_VER || '?') + ')', ar: 1, run: function () { tvCheckUpd(true); } });
+    var rt = rollTarget(); if (rt) items.push({ h: 'Diğer', label: 'Önceki sürüme dön (' + rt + ')', ar: 1, run: function () { rollBack(); } });
     if (xtLive(ch)) FMTS.forEach(function (f) { items.push({ h: 'Yayın biçimi', label: f[1], on: FMT === f[0], ar: 1, run: function () {
       FMT = f[0]; try { localStorage.setItem('tz_fmt', FMT); } catch (e) {}
       ch._tsOnly = false; ch._stallN = 0; retry = 0; toast('Yayın biçimi: ' + f[1] + ' — kanal yeniden açılıyor'); stopAv(); status('Bağlanıyor…'); start();
@@ -1496,6 +1497,44 @@ html.is-android body.ui2 .home, html.is-android body.ui2 .rundown { grid-column:
     try { x.open('GET', 'https://gelecek69.github.io/gelecek-iptv-surumler/tv/surum.json?t=' + Date.now(), true); x.send(); } catch (e) {}
   }
   window.__tzCheckUpdate = function () { tvCheckUpd(true); };
+
+  /* ---------- önceki sürüme dön ----------
+     TV'de 10 dk sorunsuz çalışan her sürüm "sağlam" diye not edilir. Yeni sürüm sorun çıkarırsa kırmızı menü › Diğer ›
+     "Önceki sürüme dön": en son sağlam sürüm sürümler sitesinin arşivinden (tv/arsiv/<sürüm>.html) indirilir ve açılır;
+     sorunlu sürüm "bozuk" diye işaretlenir, yükleyici onu bir daha indirmez. Sonraki (düzeltilmiş) sürüm çıkınca ona geçilir. */
+  var KNOWN_GOOD = '2.1.42';   // kullanıcının TV'de onayladığı sürüm (arşivde var)
+  function goods() { var g = []; try { g = JSON.parse(lsg('tv.goods') || '[]') || []; } catch (e) {} return g.filter(function (v) { return /^\d+\.\d+\.\d+$/.test(v); }); }
+  function rollTarget() {
+    var g = goods(); if (vcmp(TV_VER, KNOWN_GOOD) > 0 && g.indexOf(KNOWN_GOOD) < 0) g.push(KNOWN_GOOD);
+    g.sort(function (a, b) { return vcmp(b, a); });
+    for (var i = 0; i < g.length; i++) if (vcmp(g[i], TV_VER) < 0 && g[i] !== lsg('tv.bad')) return g[i];
+    return '';
+  }
+  setTimeout(function () {   // 10 dk sorunsuz çalıştı → sağlam
+    if (!TV_VER) return; var g = goods(); if (g[0] === TV_VER) return;
+    g = [TV_VER].concat(g.filter(function (v) { return v !== TV_VER; })).slice(0, 5);
+    try { localStorage.setItem('tv.goods', JSON.stringify(g)); } catch (e) {}
+  }, window.__tzGoodMs || 600000);
+  function rollBack() {
+    var t = rollTarget(), toast = function (m) { if (open && el.tst) toastP(m); else if (H().toast) H().toast(m); };
+    if (!t) return toast('Dönülecek önceki sürüm yok');
+    toast('Önceki sürüm ' + t + ' indiriliyor…');
+    var base = lsg('tv.base') || 'https://gelecek69.github.io/gelecek-iptv-surumler/tv/';
+    var x = new XMLHttpRequest(), done = false, tm = setTimeout(function () { if (!done) { done = true; try { x.abort(); } catch (e) {} toast('İndirilemedi (internet?) — sürüm değişmedi'); } }, 30000);
+    x.onload = function () {
+      if (done) return; done = true; clearTimeout(tm);
+      var h = x.responseText || '';
+      if (!(x.status === 200 || (x.status === 0 && h)) || h.length < 50000 || h.indexOf('TizenPlayer') < 0) return toast('Önceki sürüm bulunamadı — sürüm değişmedi');
+      try { localStorage.setItem('tv.html', h); } catch (e) { return toast('Yer yetmedi — sürüm değişmedi'); }
+      try { localStorage.setItem('tv.v', t); localStorage.setItem('tv.bad', TV_VER); localStorage.removeItem('tv.boot'); localStorage.setItem('tv.new', t + ' (önceki sürüme dönüldü)'); } catch (e) {}
+      toast('Önceki sürüm ' + t + ' açılıyor…');
+      try { stopAv(); } catch (e) {}
+      setTimeout(function () { location.replace('index.html'); }, 900);
+    };
+    x.onerror = function () { if (done) return; done = true; clearTimeout(tm); toast('İndirilemedi (internet?) — sürüm değişmedi'); };
+    try { x.open('GET', base + 'arsiv/' + t + '.html?t=' + Date.now(), true); x.send(); } catch (e) { toast('İndirilemedi — sürüm değişmedi'); }
+  }
+  window.__tzRollBack = rollBack; window.__tzRollTarget = rollTarget;
   document.addEventListener('visibilitychange', function () {
     if (document.hidden || open || !TV_VER || Date.now() - updLast < 3600e3 || lsg('tv.noupd')) return;
     updLast = Date.now();
