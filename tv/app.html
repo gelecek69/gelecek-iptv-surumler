@@ -1,4 +1,4 @@
-<script>window.__tvBuilt="2.1.33";</script>
+<script>window.__tvBuilt="2.1.34";</script>
 <title>Gelecek IPTV</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -251,7 +251,7 @@ button { cursor: pointer; }
 .lang-btn span { font: 700 12px/1 var(--f-mono); letter-spacing: .04em; }
 .txt-btn { display: inline-flex; align-items: center; gap: 6px; width: auto; padding: 0 11px; font-weight: 600; font-size: 13px; }
 .txt-btn svg { width: 17px; height: 17px; flex: none; }
-#btnUpd.has-upd { border-color: var(--tally); color: var(--tally); }
+#btnUpd.has-upd, #hlUpdate.has-upd { border-color: var(--tally); color: var(--tally); }
 @media (max-width: 1500px) { .txt-btn { padding: 0; width: 40px; justify-content: center; } .txt-btn span { display: none; } }   /* dar pencerede yalnız simge */
 .rec-btn { gap: 7px; display: inline-flex; align-items: center; padding: 0 12px; font-weight: 600; }
 .rec-btn i { width: 11px; height: 11px; border-radius: 50%; background: var(--onair); display: block; }
@@ -576,7 +576,9 @@ html.is-android body.ui2 .home, html.is-android body.ui2 .rundown { grid-column:
       <button type="button" data-hl="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>Arama</button>
       <button type="button" data-hl="settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>Ayarlar</button>
       <button type="button" data-hl="devices"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="2" y="4" width="14" height="10" rx="1.5"/><path d="M6 18h6"/><rect x="17" y="8" width="5" height="12" rx="1"/></svg>Cihazlarım</button>
-      <button type="button" data-hl="remote" id="hlRemote" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="7" y="2" width="10" height="20" rx="3"/><circle cx="12" cy="9" r="2.2"/><path d="M10 15h.01M14 15h.01M12 18h.01"/></svg>Telefon kumandası</button>
+      <button type="button" data-hl="remote" id="hlRemote" title="Telefonu kumanda yap" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="7" y="2" width="10" height="20" rx="3"/><circle cx="12" cy="9" r="2.2"/><path d="M10 15h.01M14 15h.01M12 18h.01"/></svg>Kumanda</button>
+      <button type="button" data-hl="account"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>Hesap</button>
+      <button type="button" data-hl="update" id="hlUpdate"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg><span id="hlUpdTxt">Güncelle</span></button>
     </div>
     <div class="h-acc"><div class="h-pl" id="hPl"></div><small id="hAcc"></small></div>
   </nav>
@@ -884,7 +886,7 @@ html.is-android body.ui2 .home, html.is-android body.ui2 .rundown { grid-column:
     'html.is-tizen body.ui2 .h-tile small { font-size: 15px; }' +
     'html.is-tizen body.ui2 .h-search { width: 100% !important; height: 52px; }' +
     'html.is-tizen body.ui2 .h-search input { font-size: 19px; }' +
-    'html.is-tizen body.ui2 .h-links button { font-size: 20px; padding: 12px 16px; }' +
+    'html.is-tizen body.ui2 .h-links { flex-wrap: nowrap !important; gap: 2px; } html.is-tizen body.ui2 .h-links button { font-size: 18px; padding: 10px 12px; gap: 9px; white-space: nowrap; } html.is-tizen body.ui2 .h-links button svg { width: 18px; height: 18px; }' +
     'html.is-tizen body.ui2 .h-acc { width: 60% !important; }' +
     'html.is-tizen .ch.card.lv .cap b { font-size: 19px; } html.is-tizen .ch.card.lv .cap small { font-size: 14px; } html.is-tizen .ch.card.lv .pst { font-size: 24px; } html.is-tizen .ch.card.lv .cno { font-size: 12px; }' +
     '#tzp { width: ' + (100) + 'vw; height: 100vh; right: auto; bottom: auto; transform: scale(' + (1 / Z) + '); transform-origin: 0 0; }';
@@ -1435,6 +1437,9 @@ html.is-android body.ui2 .home, html.is-android body.ui2 .rundown { grid-column:
     x.onload = function () {
       var v = String(x.responseText || '').trim(); if (!v || v.length > 4000) return;
       // liste zaten ekliyse hiçbir şey yapılmaz; silinmişse (TV yeniden kurulumda kayıtları temizleyebiliyor) yeniden eklenir
+      // aynı liste.txt bir kere işlenir (her açılışta "liste ekle" penceresi çıkmasın); TV kayıtları silinirse yeniden
+      if (lsg('tv.liste') === v) return;
+      try { localStorage.setItem('tv.liste', v); } catch (e) {}
       if (window.__iptvPrefill) window.__iptvPrefill(v);
     };
     x.onerror = function () {};
@@ -4359,6 +4364,7 @@ function updRender() {
   b.disabled = u.status === 'checking' || u.status === 'downloading';
   b.textContent = u.status === 'ready' ? 'Şimdi güncelle' : u.status === 'manual' ? (PLATFORM === 'android' ? 'Güncelle' : 'İndirme sayfasını aç') : 'Güncellemeleri denetle';
   $('btnSettings').classList.toggle('has-upd', u.status === 'ready' || u.status === 'manual');
+  var hu = $('hlUpdTxt'); if (hu) { hu.textContent = u.status === 'ready' || u.status === 'manual' ? 'Yeni sürüm var' : 'Güncelle'; $('hlUpdate').classList.toggle('has-upd', u.status === 'ready' || u.status === 'manual'); }
   var ub = $('btnUpd'); if (ub) { ub.classList.toggle('has-upd', u.status === 'ready' || u.status === 'manual'); $('updBtnTxt').textContent = u.status === 'ready' || u.status === 'manual' ? 'Yeni sürüm' : u.status === 'checking' ? 'Denetleniyor…' : 'Güncelle'; }
 }
 // Güncelleme hazır olunca ekranın ortasında sorulur: boyutu, şimdi ya da sonra. "Sonra" denirse kurulmaz,
@@ -4420,6 +4426,7 @@ window.__iptvCheckUpdate = checkUpdateNow;
 $('btnAcc').onclick = openAccount;
 $('btnUpd').onclick = checkUpdateNow;
 $('btnUpd').hidden = !(DESKTOP || NATIVE || TIZEN) || (!UPD_ON && !TIZEN);
+$('hlUpdate').hidden = $('btnUpd').hidden;
 $('updBtn').onclick = function () {
   if (UPD.status === 'ready' || UPD.status === 'manual') return updInstall();
   if (DESKTOP && DESKTOP.updateCheck) DESKTOP.updateCheck().then(updSet);
@@ -4895,7 +4902,12 @@ window.__iptvPrefill = function (text) {
   if (extractCode(v)) return importShare(v, true);
   var line = (v.match(/https?:\/\/\S+/) || [])[0]; if (!line) return;
   var xc = M3U.xtreamCreds(line);
-  if (playlists.some(function (p) { return (xc && xc.user && p.server === xc.server && p.user === xc.user) || p.url === line; })) return;   // zaten ekli
+  var same = function (p) {   // aynı hesap: Xtream bilgileri ya da M3U linkindeki kullanıcı adı / sunucu aynıysa (parametre sırası farklı olsa da)
+    if (p.url === line) return true;
+    var pc = p.server ? { server: p.server, user: p.user } : (p.url && M3U.xtreamCreds(p.url));
+    return !!(xc && xc.user && pc && pc.user === xc.user && String(pc.server).replace(/\/+$/, '') === String(xc.server).replace(/\/+$/, ''));
+  };
+  if (playlists.some(same)) return;   // zaten ekli
   if ($('modal').hidden) openModal();
   importShare(line, false);
   if (!$('fName').value) $('fName').value = 'Benim liste';
@@ -5219,6 +5231,8 @@ $('home').addEventListener('click', function (e) {
   else if (a === 'search') { goList('all'); $('q').focus(); }
   else if (a === 'settings' || a === 'devices') openModal();
   else if (a === 'remote') rmtShow();
+  else if (a === 'account') openAccount();
+  else if (a === 'update') checkUpdateNow();
 });
 $('u2Back').onclick = function () { uiBack(); };
 $('grpClose2').onclick = function () { grpPanel(false); };
