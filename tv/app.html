@@ -1,4 +1,4 @@
-<script>window.__tvBuilt="2.1.31";</script>
+<script>window.__tvBuilt="2.1.32";</script>
 <title>Gelecek IPTV</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -249,6 +249,10 @@ button { cursor: pointer; }
 /* Dil düğmesi, kayıt */
 .lang-btn { gap: 6px; display: inline-flex; align-items: center; padding: 0 10px; }
 .lang-btn span { font: 700 12px/1 var(--f-mono); letter-spacing: .04em; }
+.txt-btn { display: inline-flex; align-items: center; gap: 6px; width: auto; padding: 0 11px; font-weight: 600; font-size: 13px; }
+.txt-btn svg { width: 17px; height: 17px; flex: none; }
+#btnUpd.has-upd { border-color: var(--tally); color: var(--tally); }
+@media (max-width: 1500px) { .txt-btn { padding: 0; width: 40px; justify-content: center; } .txt-btn span { display: none; } }   /* dar pencerede yalnız simge */
 .rec-btn { gap: 7px; display: inline-flex; align-items: center; padding: 0 12px; font-weight: 600; }
 .rec-btn i { width: 11px; height: 11px; border-radius: 50%; background: var(--onair); display: block; }
 .rec-btn[aria-pressed="true"] { background: var(--onair); border-color: var(--onair); color: #fff; }
@@ -641,6 +645,8 @@ html.is-android body.ui2 .home, html.is-android body.ui2 .rundown { grid-column:
       <button class="icon-btn" id="btnEpg" type="button" title="Yayın akışı (E)" aria-label="Yayın akışı" aria-haspopup="menu" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4M7 14h4M7 17h7"/></svg></button>
       <button class="icon-btn lang-btn" id="btnLang" type="button" title="Dil ve altyazı (D)" aria-label="Dil ve altyazı" aria-haspopup="menu" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5h9M8.5 3v2M6 5c.5 3 2.5 5.5 5 7M11 5c-.8 3.4-3.2 6.2-6 7.5"/><path d="m13 21 4-9 4 9M14.5 18h5"/></svg><span id="langTxt">TR</span></button>
       <button class="icon-btn rec-btn" id="btnRec" type="button" title="Kaydet (K)" aria-label="Kaydet" aria-pressed="false"><i></i><span id="recTxt">Kayıt</span></button>
+      <button class="icon-btn txt-btn" id="btnAcc" type="button" title="Hesap: listeler ve IPTV giriş bilgileri" aria-label="Hesap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg><span>Hesap</span></button>
+      <button class="icon-btn txt-btn" id="btnUpd" type="button" title="Güncellemeleri denetle" aria-label="Güncelle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg><span id="updBtnTxt">Güncelle</span></button>
       <button class="icon-btn dl-chip" id="dlChip" type="button" title="İndirilenler klasörünü aç" hidden></button>
       <button class="icon-btn" id="btnVlc" title="VLC'de aç (V)" aria-label="VLC'de aç" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 3h7v7"/><path d="M10 14 21 3"/><path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5"/></svg></button>
       <button class="tech" id="tech" type="button" title="Kaliteyi değiştir" aria-haspopup="menu" aria-expanded="false"><span class="dot" id="dot"></span> <span id="techTxt">Hazır</span> <svg class="caret" viewBox="0 0 10 6" aria-hidden="true"><path d="M1 5 5 1l4 4"/></svg></button>
@@ -893,7 +899,7 @@ html.is-android body.ui2 .home, html.is-android body.ui2 .rundown { grid-column:
     ui.innerHTML = '<div class="z-osd"><div class="z-l1"><span class="z-no"></span><span class="z-nm"></span></div><div class="z-sb"></div><div class="z-tech"></div><div class="z-ep"></div></div>' +
       '<div class="z-st"></div><div class="z-sub"></div><div class="z-zap"></div><div class="z-tst"></div>' +
       '<div class="z-bar"><div class="z-tl"><span class="z-tc">0:00</span><div class="z-tr"><b></b></div><span class="z-td">0:00</span></div>' +
-      '<div class="z-hint"><em style="background:#e84a4a">●</em>Ses / altyazı <em style="background:#3cb371">●</em>Altyazı aç/kapa <em style="background:#f2c230">●</em>Ekran: <span class="z-ar">Sığdır</span> <em style="background:#fff">◀ ▶</em>' +
+      '<div class="z-hint"><em style="background:#e84a4a">●</em>Menü <em style="background:#3cb371">●</em>Altyazı aç/kapa <em style="background:#f2c230">●</em>Ekran: <span class="z-ar">Sığdır</span> <em style="background:#fff">◀ ▶</em>' +
       '<span class="z-hv">Sar</span> <em style="background:#fff">▲ ▼</em><span class="z-hk">Kanal</span> <em style="background:#fff">OK</em><span class="z-ho">Liste</span> <em style="background:#fff">↩</em>Listeye dön</div></div>' +
       '<div class="z-menu"></div><div class="z-cl"></div>';
     document.body.appendChild(ui);
@@ -908,6 +914,7 @@ html.is-android body.ui2 .home, html.is-android body.ui2 .rundown { grid-column:
 
   function isVod(c) { return c && (c.kind === 'movie' || c.kind === 'episode'); }
   function fmt(ms) { var f = H().fmtTime; return f ? f(ms / 1000) : String(Math.floor(ms / 1000)); }
+  function toastP(m) { toast(m); }
   function toast(m) { el.tst.textContent = m; el.tst.style.display = 'block'; clearTimeout(toast.t); toast.t = setTimeout(function () { el.tst.style.display = 'none'; }, 2600); }
   function status(m) { el.st.textContent = m || ''; el.st.style.display = m ? 'block' : 'none'; }
   function state() { try { return av.getState(); } catch (e) { return 'NONE'; } }
@@ -1137,6 +1144,8 @@ html.is-android body.ui2 .home, html.is-android body.ui2 .rundown { grid-column:
     tracks.S.forEach(function (s) { items.push({ h: 'Altyazı', label: s.label, on: tracks.sOn === s, run: function () { extCues = null; setSub(s); if (H().lchSet) H().lchSet(ch, { s: s.l2 || '#' + s.index }); } }); });
     if (!tracks.A.length) items.unshift({ h: 'Ses', label: 'Bu yayında tek ses var', on: true, run: function () {} });
     AR.forEach(function (r) { items.push({ h: 'Ekran', label: r[1], on: arMode === r[0], ar: 1, run: function () { arSet(r[0]); } }); });
+    items.push({ h: 'Diğer', label: 'Hesap · listeler ve giriş bilgileri', ar: 1, run: function () { var f = window.__iptvOpenSettings; setTimeout(function () { f && f(); }, 50); } });
+    items.push({ h: 'Diğer', label: 'Güncellemeleri denetle (şu an ' + (TV_VER || '?') + ')', ar: 1, run: function () { tvCheckUpd(true); } });
     if (xtLive(ch)) FMTS.forEach(function (f) { items.push({ h: 'Yayın biçimi', label: f[1], on: FMT === f[0], ar: 1, run: function () {
       FMT = f[0]; try { localStorage.setItem('tz_fmt', FMT); } catch (e) {}
       ch._tsOnly = false; ch._stallN = 0; retry = 0; toast('Yayın biçimi: ' + f[1] + ' — kanal yeniden açılıyor'); stopAv(); status('Bağlanıyor…'); start();
@@ -1391,6 +1400,21 @@ html.is-android body.ui2 .home, html.is-android body.ui2 .rundown { grid-column:
   // TV uygulamayı arka planda açık tutar: geri dönüldüğünde (saatte bir) yeni sürüme bakılır; yayın açık değilse yükleyiciyle yeniden açılır
   var updLast = Date.now();
   function vcmp(a, b) { a = String(a || '0').split('.'); b = String(b || '0').split('.'); for (var i = 0; i < 3; i++) { var d = (+a[i] || 0) - (+b[i] || 0); if (d) return d; } return 0; }
+  // elle denetle (menüden / Güncelle düğmesinden): yeni sürüm varsa yükleyiciyle yeniden açılır (indirip açar)
+  function tvCheckUpd(manual) {
+    var toast = function (m) { if (open && el.tst) toastP(m); else if (H().toast) H().toast(m); };
+    if (manual) toast('Güncelleme denetleniyor…');
+    var x = new XMLHttpRequest();
+    x.onload = function () {
+      try { var j = JSON.parse(x.responseText);
+        if (j.v && vcmp(j.v, TV_VER) > 0 && j.v !== lsg('tv.bad')) { toast('Yeni sürüm ' + j.v + ' indiriliyor…'); setTimeout(function () { location.replace('index.html'); }, 1200); }
+        else if (manual) toast('En güncel sürümü kullanıyorsun (' + TV_VER + ')');
+      } catch (e) { if (manual) toast('Güncelleme denetlenemedi'); }
+    };
+    x.onerror = function () { if (manual) toast('Güncelleme denetlenemedi (internet?)'); };
+    try { x.open('GET', 'https://gelecek69.github.io/gelecek-iptv-surumler/tv/surum.json?t=' + Date.now(), true); x.send(); } catch (e) {}
+  }
+  window.__tzCheckUpdate = function () { tvCheckUpd(true); };
   document.addEventListener('visibilitychange', function () {
     if (document.hidden || open || !TV_VER || Date.now() - updLast < 3600e3 || lsg('tv.noupd')) return;
     updLast = Date.now();
@@ -4330,6 +4354,7 @@ function updRender() {
   b.disabled = u.status === 'checking' || u.status === 'downloading';
   b.textContent = u.status === 'ready' ? 'Şimdi güncelle' : u.status === 'manual' ? (PLATFORM === 'android' ? 'Güncelle' : 'İndirme sayfasını aç') : 'Güncellemeleri denetle';
   $('btnSettings').classList.toggle('has-upd', u.status === 'ready' || u.status === 'manual');
+  var ub = $('btnUpd'); if (ub) { ub.classList.toggle('has-upd', u.status === 'ready' || u.status === 'manual'); $('updBtnTxt').textContent = u.status === 'ready' || u.status === 'manual' ? 'Yeni sürüm' : u.status === 'checking' ? 'Denetleniyor…' : 'Güncelle'; }
 }
 // Güncelleme hazır olunca ekranın ortasında sorulur: boyutu, şimdi ya da sonra. "Sonra" denirse kurulmaz,
 // program bir sonraki açılışta yeniden sorar.
@@ -4376,6 +4401,20 @@ window.__iptvUpdate = function (state, pct, msg) {   // Android: indirme / kurul
   else if (state === 'error') { UPD.status = 'manual'; updRender(); toast('Güncelleme indirilemedi: ' + (msg || '')); }
   else if (state === 'install') { UPD.status = 'manual'; updRender(); toast(msg || 'Kurulum ekranında "Yükle"ye bas'); }
 };
+// oynatıcı çubuğundaki Hesap / Güncelle (Windows, web) — telefonda ve TV'de oynatıcının kendi düğmeleri bunları çağırır
+function openAccount() { if (TIZEN && TIZEN.isOpen && TIZEN.isOpen()) TIZEN.close(); openModal(); var r = document.querySelector('#plRows .pl-pick[aria-current="true"]') || $('plRows').querySelector('button'); if (r) setTimeout(function () { r.focus(); }, 60); }
+function checkUpdateNow() {
+  if (UPD.status === 'ready' || UPD.status === 'manual') return updInstall();
+  if (DESKTOP && DESKTOP.updateCheck) { toast('Güncelleme denetleniyor…'); return DESKTOP.updateCheck().then(function (u) { updSet(u); if (u && u.status === 'latest') toast('En güncel sürümü kullanıyorsun' + (APPV ? ' (' + APPV + ')' : '')); else if (u && u.status === 'error') toast('Denetlenemedi: ' + (u.error || '')); }); }
+  if (NATIVE && NATIVE.offerUpdate) { toast('Güncelleme denetleniyor…'); return updCheckAndroid(true); }
+  if (TIZEN && window.__tzCheckUpdate) return window.__tzCheckUpdate();
+  toast('Bu sürümde güncelleme kendiliğinden gelir');
+}
+window.__iptvOpenSettings = openAccount;
+window.__iptvCheckUpdate = checkUpdateNow;
+$('btnAcc').onclick = openAccount;
+$('btnUpd').onclick = checkUpdateNow;
+$('btnUpd').hidden = !(DESKTOP || NATIVE || TIZEN) || (!UPD_ON && !TIZEN);
 $('updBtn').onclick = function () {
   if (UPD.status === 'ready' || UPD.status === 'manual') return updInstall();
   if (DESKTOP && DESKTOP.updateCheck) DESKTOP.updateCheck().then(updSet);
