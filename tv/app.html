@@ -1,4 +1,4 @@
-<script>window.__tvBuilt="2.1.40";</script>
+<script>window.__tvBuilt="2.1.41";</script>
 <title>Gelecek IPTV</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -3391,10 +3391,65 @@ function savePanes() {
 }
 
 // Ses yalnızca seçili ekrandan
-/* Ses yükseltme (%100 üstü): her ekranın sesi Web Audio kazanç düğümünden geçer, ardından
-   tepe noktaları kırpan bir sınırlayıcı; böylece %150'de bile cızırtı olmaz.
-   Yalnız masaüstünde açık (tarayıcıda başka sunuculardan gelen ses bu yoldan geçirilemiyor). */
-var BOOST = !!DESKTOP, MAXV = BOOST ? 1.5 : 1, actx = null, limiter = null;
+/* Ses yükseltme (%100 üstü, %200'e kadar): her ekranın sesi Web Audio kazanç düğümünden ve aynı sınırlayıcıdan geçer
+   (%100 ve altı eskisiyle birebir aynı). %100 üstünde ayrıca "yükseltici" devreye girer: sesi 12 dB'ye kadar sürer,
+   5 ms ileriye bakan sınırlayıcıyla tepeleri gelmeden yumuşakça indirir → kırpma / cızırtı olmaz. Kısık yayın ve
+   filmlerde fark tam duyulur (%150 ≈ 2 kat, %200 ≈ 4 kat ses basıncı); zaten bağıran kanallarda bozmadan çıkabileceği yere kadar çıkar.
+   Yalnız masaüstünde açık (tarayıcıda başka sunuculardan gelen ses bu yoldan geçirilemiyor).
+   Yükseltici yüklenemezse eski yol (%150, kazanç + sınırlayıcı) kalır. */
+var BOOST = !!DESKTOP, MAXV = BOOST ? 2 : 1, actx = null, limiter = null, boostNode = null;
+function yukseltici() {   // AudioWorklet içinde çalışır (bu sayfada çağrılmaz)
+  class GelecekYukselt extends AudioWorkletProcessor {
+    static get parameterDescriptors() { return [{ name: 'boost', defaultValue: 0, minValue: 0, maxValue: 1, automationRate: 'k-rate' }]; }
+    constructor() {
+      super();
+      var L = this.L = Math.max(16, Math.round(sampleRate * 0.005)), W = this.W = L + Math.round(sampleRate * 0.01);
+      this.ceil = 0.966; this.drive = 12;
+      this.buf = [new Float32Array(L), new Float32Array(L)]; this.bi = 0;
+      this.box = new Float32Array(L).fill(1); this.boxSum = L; this.boxI = 0;
+      this.mq = new Int32Array(W + 1); this.mv = new Float32Array(W + 1); this.mh = 0; this.mt = 0; this.n = 0;
+      this.env = 1; this.rel = 1 - Math.exp(-1 / (sampleRate * 0.06)); this.b = 0;
+    }
+    process(inputs, outputs, params) {
+      var inp = inputs[0], out = outputs[0]; if (!out || !out.length) return true;
+      var nch = out.length, n = out[0].length, L = this.L, W = this.W, M = W + 1, target = params.boost[0];
+      var a0 = inp && inp[0], a1 = inp && (inp[1] || inp[0]);
+      for (var i = 0; i < n; i++) {
+        this.b += (target - this.b) * 0.0005; if (target === 0 && this.b < 1e-5) this.b = 0;   // ayar değişimi yumuşak (tıklama olmasın)
+        var g = this.b > 0 ? Math.pow(10, this.drive * this.b / 20) : 1;
+        var x0 = (a0 ? a0[i] : 0) * g, x1 = (a1 ? a1[i] : 0) * g;
+        var pk = Math.max(Math.abs(x0), Math.abs(x1)), r = pk > this.ceil ? this.ceil / pk : 1, k = this.n++;
+        while (this.mt > this.mh && this.mv[(this.mt - 1) % M] >= r) this.mt--;
+        this.mq[this.mt % M] = k; this.mv[this.mt % M] = r; this.mt++;
+        while (this.mq[this.mh % M] <= k - W) this.mh++;
+        var held = this.mv[this.mh % M];
+        if (held < this.env) this.env = held; else this.env += (held - this.env) * this.rel;
+        this.boxSum += this.env - this.box[this.boxI]; this.box[this.boxI] = this.env; this.boxI = (this.boxI + 1) % L;
+        var gs = this.boxSum / L, bi = this.bi, y0 = this.buf[0][bi], y1 = this.buf[1][bi];
+        this.buf[0][bi] = x0; this.buf[1][bi] = x1; this.bi = (bi + 1) % L;
+        if (gs < 1) { y0 *= gs; y1 *= gs; }
+        out[0][i] = y0 > 0.99 ? 0.99 : y0 < -0.99 ? -0.99 : y0;
+        if (nch > 1) out[1][i] = y1 > 0.99 ? 0.99 : y1 < -0.99 ? -0.99 : y1;
+      }
+      return true;
+    }
+  }
+  registerProcessor('gelecek-yukselt', GelecekYukselt);
+}
+function boostLost() {   // yükseltici yok: eski %150 sınırı
+  MAXV = 1.5; $('vol').max = 1.5; if (appVol > 1.5) { appVol = 1.5; lsSet('vol', 1.5); } updVol();
+}
+function boostSetup() {
+  try {
+    if (!actx.audioWorklet || !window.AudioWorkletNode) return boostLost();
+    var src = '(' + yukseltici.toString() + ')();';
+    actx.audioWorklet.addModule('data:text/javascript;base64,' + btoa(unescape(encodeURIComponent(src)))).then(function () {
+      var w = new AudioWorkletNode(actx, 'gelecek-yukselt', { numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [2] });
+      limiter.disconnect(); limiter.connect(w); w.connect(actx.destination);
+      boostNode = w; applyAudio();
+    }).catch(boostLost);
+  } catch (e) { boostLost(); }
+}
 function audioGraph(p) {
   if (!BOOST || p.gain) return p.gain;
   try {
@@ -3404,6 +3459,7 @@ function audioGraph(p) {
       limiter.threshold.value = -2; limiter.knee.value = 0; limiter.ratio.value = 20;
       limiter.attack.value = 0.003; limiter.release.value = 0.25;
       limiter.connect(actx.destination);
+      boostSetup();
     }
     var src = actx.createMediaElementSource(p.video);
     p.gain = actx.createGain();
@@ -3413,10 +3469,11 @@ function audioGraph(p) {
 }
 function applyAudio() {
   if (actx && actx.state === 'suspended') actx.resume().catch(function () {});
+  if (boostNode) boostNode.parameters.get('boost').value = appMuted ? 0 : Math.max(0, Math.min(1, appVol - 1));
   panes.forEach(function (p) {
     var v = p.video, isActive = p === active;
     var g = audioGraph(p);
-    if (g) { v.volume = 1; v.muted = !isActive || !!p.catching; g.gain.value = appMuted ? 0 : appVol; }
+    if (g) { v.volume = 1; v.muted = !isActive || !!p.catching; g.gain.value = appMuted ? 0 : boostNode ? Math.min(1, appVol) : Math.min(1.5, appVol); }
     else { v.volume = Math.min(1, appVol); v.muted = !isActive || appMuted || !!p.catching; }
   });
 }
