@@ -1,4 +1,4 @@
-<script>window.__tvBuilt="2.1.38";</script>
+<script>window.__tvBuilt="2.1.39";</script>
 <title>Gelecek IPTV</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -702,6 +702,7 @@ html.is-android body.ui2 .home, html.is-android body.ui2 .rundown { grid-column:
       <button class="btn ghost" type="button" id="btnGroupEdit">Grupları düzenle (gizle / sırala)</button>
       <button class="btn ghost" type="button" id="btnPinChange">+18 şifresi</button>
     </div>
+    <label class="chk" id="lightRow" style="margin-top:10px" hidden><input type="checkbox" id="lightOn"> Wi-Fi'da RAW / 4K kanallar yerine aynı kanalın FHD sürümünü aç (mobil veride her zaman)</label>
     <label class="chk" style="margin-top:10px"><input type="checkbox" id="logosOn"> Kanal logolarını ve film afişlerini göster (TV'de yavaşlatabilir)</label>
     <label class="chk" style="margin-top:10px"><input type="checkbox" id="epgOn"> Canlı kanallarda yayın akışını göster (şimdi ne var, sonra ne var)</label>
     <label class="chk" style="margin-top:10px"><input type="checkbox" id="uiNew"> Yeni görünüm (solda Canlı · Film · Dizi menüsü, sağda yayın)</label>
@@ -1970,6 +1971,7 @@ function applyText(text, storeId) {
   applyData();
 }
 function applyData() {
+  baseIdx = null;
   buildCatalog();
   if (!cat[kind === 'all' ? 'all' : kind].length) kind = cat.live.length ? 'live' : cat.movie.length ? 'movie' : cat.series.length ? 'series' : 'live';
   var g = kindGroups();
@@ -2018,6 +2020,16 @@ function applyDone(pl, t0) {
   if (!window.__bootMs) { try { window.__bootMs = Math.round(Date.now() - (performance.timeOrigin || performance.timing.navigationStart)); window.__parseMs = Date.now() - t0; } catch (e) {} }
 }
 function showListMsg(m) { innerEl.style.height = 'auto'; innerEl.innerHTML = '<div class="empty">' + esc(m) + '</div>'; $('listCount').textContent = ''; }
+
+/* ---------- hafif sürüm (telefon): RAW / 4K kanalın aynı adlı FHD / HD sürümü ---------- */
+var LIGHT_NET = lsGet('lightNet', true) !== false, baseIdx = null;
+function lightPick(x) {
+  if (!x || isVod({ ch: x }) || x.kind === 'movie' || x.kind === 'episode' || qRank(x) < 5) return null;
+  if (!baseIdx) { baseIdx = {}; (data.channels || []).forEach(function (y) { if (y.kind === 'movie' || y.kind === 'episode' || y.kind === 'series') return; var b = baseName(y); if (b) (baseIdx[b] = baseIdx[b] || []).push(y); }); }
+  var b = baseName(x), best = null;
+  (baseIdx[b] || []).forEach(function (y) { var r = qRank(y); if (y.key !== x.key && r < 5 && (!best || r > qRank(best))) best = y; });
+  return best;
+}
 
 /* ================= katalog: canlı / film / dizi ================= */
 function buildCatalog() {
@@ -3387,6 +3399,12 @@ function play(c, list) {
   }
   if (NATIVE) {   // Android: ExoPlayer tam ekran, kanal değiştirmeli
     playing = c; playView = list; drawRows();
+    // Telefon: mobil veride (ve ayar açıksa Wi-Fi'da) RAW / 4K yerine aynı kanalın FHD / HD sürümü — veri paketi bitmesin, görüntü takılmasın
+    var net = '', subs = 0; try { net = NATIVE.connectionType ? NATIVE.connectionType() : ''; } catch (e) {}
+    if (net === 'mobil' || (net === 'wifi' && LIGHT_NET)) {
+      list = list.map(function (x) { var a = lightPick(x); if (a && x === c) subs = a; return a || x; });
+      if (subs) { toast((net === 'mobil' ? 'Mobil veri' : 'Wi-Fi') + ': “' + c.name + '” yerine “' + subs.name + '” açıldı (RAW / 4K çok veri ister)'); c = subs; }
+    }
     var slim = list.map(function (x) { return { name: x.name, url: x.url, group: x.group, logo: x.logo, ua: x.ua || settings.ua, referrer: x.referrer, kind: x.kind || 'live', series: x.seriesName || '', season: x.season || 0, ep: x.ep || 0, title: x.title || '', plId: (activePl() || {}).id || '' }; });
     NATIVE.play(JSON.stringify(slim), list.indexOf(c));
     return;
@@ -5354,6 +5372,8 @@ $('u2Seasons').addEventListener('click', function (e) {
 });
 // gruplar panelinde seçim yapınca panel kapanır
 $('groups').addEventListener('click', function (e) { if (UI2 && grpOpen && e.target.closest('.grp') && !e.target.closest('[data-g="__edit"],[data-g="__adult"],[data-g="__lock"]')) setTimeout(function () { grpPanel(false); }, 0); });
+$('lightRow').hidden = !NATIVE; $('lightOn').checked = LIGHT_NET;
+$('lightOn').onchange = function () { LIGHT_NET = this.checked; lsSet('lightNet', LIGHT_NET); };
 $('logosOn').onchange = function () { LOGOS = this.checked; lsSet('logos', LOGOS); redrawRows(); };
 $('epgOn').onchange = function () {
   EPG_ON = this.checked; lsSet('epgOn', EPG_ON); updEpgBtn(); closeEpg();
