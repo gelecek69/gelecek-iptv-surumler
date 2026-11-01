@@ -1,4 +1,4 @@
-<script>window.__tvBuilt="2.1.43";</script>
+<script>window.__tvBuilt="2.1.44";</script>
 <title>Gelecek IPTV</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -42,7 +42,12 @@
 #shareDlg, #impDlg, #rcvDlg, #bayiDlg { z-index: 56; }
 .pin-sheet input { font-size: 22px; letter-spacing: 6px; text-align: center; }
 .pin-code { font: 600 26px/1.2 var(--f-mono); letter-spacing: 4px; text-align: center; padding: 12px; border: 1px dashed var(--line); border-radius: 8px; margin: 6px 0; color: var(--tally); user-select: all; }
-#pinDlg, #grpDlg { z-index: 55; }
+#pinDlg, #grpDlg, #dlDlg { z-index: 55; }
+.dl-grp h3 { margin: 0 0 6px; font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.dl-row { display: flex; align-items: center; gap: 10px; padding: 7px 4px; cursor: pointer; border-radius: 8px; }
+.dl-row:hover { background: rgba(255,255,255,.04); }
+.dl-row input { width: 18px; height: 18px; accent-color: var(--tally); }
+.dl-row small { color: var(--muted); }
 .grp-rows { display: grid; gap: 4px; max-height: 52vh; overflow-y: auto; }
 .grp-row { display: grid; grid-template-columns: 36px minmax(0, 1fr) auto 36px 36px; align-items: center; gap: 6px; padding: 4px 6px; border: 1px solid var(--line); border-radius: 6px; }
 .grp-row.off .gname { opacity: .45; text-decoration: line-through; }
@@ -734,6 +739,17 @@ html.is-android body.ui2 .home, html.is-android body.ui2 .rundown { grid-column:
     <div class="field" id="pinF3" hidden><label for="pin3">Yeni şifre (tekrar)</label><input id="pin3" type="password" inputmode="numeric" autocomplete="off" maxlength="12"></div>
     <p class="err" id="pinErr" hidden></p>
     <div class="row-actions" style="justify-content:space-between"><button class="btn ghost" type="button" id="pinForgot">Şifremi unuttum</button><span style="display:flex;gap:8px"><button class="btn ghost" type="button" id="pinCancel">Vazgeç</button><button class="btn" type="button" id="pinOk">Aç</button></span></div>
+  </div>
+</div>
+<div class="modal" id="dlDlg" hidden>
+  <div class="sheet pin-sheet" role="dialog" aria-modal="true" aria-labelledby="dlTitle">
+    <h2 id="dlTitle">Ne indirilsin?</h2>
+    <p class="hint" id="dlName"></p>
+    <div class="dl-grp" id="dlA"></div>
+    <div class="dl-grp" id="dlS"></div>
+    <p class="hint">Dosya her oynatıcıda açılan MP4 olur. İşaretlemediğin diller dosyaya girmez, dosya küçülür. (İndirme süresi değişmez: film tek parça iner, seçim sonda yapılır.)</p>
+    <p class="err" id="dlErr" hidden></p>
+    <div class="row-actions"><button class="btn ghost" type="button" id="dlCancel">Vazgeç</button><button class="btn" type="button" id="dlOk">İndir</button></div>
   </div>
 </div>
 <div class="modal" id="grpDlg" hidden>
@@ -2647,6 +2663,46 @@ function recPush(p, buf) {
     return fetch(mURL('rec/chunk', { id: r.id }), { method: 'POST', body: buf }).then(function (x) { if (x.status === 410 && p.rec === r) recStop(p); });
   }).catch(function () {});
 }
+// İndirme seçimi: { keep: { a: [iz no], s: [iz no] } | null (hepsi), txt } ya da null (vazgeçildi)
+var dlDone = null;
+function dlAsk(c, ua, ref) {
+  return new Promise(function (resolve) {
+    var t = setTimeout(function () { resolve({ keep: null }); }, 12000);   // bilgi gelmezse her şeyiyle indir (eskisi gibi)
+    probeInfo(c, ua, ref).then(function (info) {
+      clearTimeout(t);
+      var A = (info && info.audio) || [], S = ((info && info.subs) || []).filter(function (x) { return x.text; });
+      if (A.length <= 1 && !S.length) return resolve({ keep: null });
+      var pref = lsGet('dlPick', null) || { a: ['tr', 'en'], s: ['tr', 'en'] };
+      var row = function (k, x, i, on) {
+        var extra = k === 'a' ? [String(x.codec || '').toUpperCase(), x.ch || ''].filter(Boolean).join(' ') : '';
+        return '<label class="dl-row"><input type="checkbox" data-k="' + k + '" data-i="' + x.index + '" data-key="' + esc(trackKey(x)) + '"' + (on ? ' checked' : '') + '><span>' + esc(trackLabel(x, i)) + (extra ? ' <small>' + esc(extra) + '</small>' : '') + '</span></label>';
+      };
+      var aOn = A.map(function (x) { return pref.a.indexOf(trackKey(x)) > -1; });
+      if (!aOn.some(Boolean)) aOn = A.map(function () { return true; });   // seçili dil yoksa hepsi
+      $('dlName').textContent = c.title || c.name || '';
+      $('dlA').innerHTML = '<h3>Ses</h3>' + A.map(function (x, i) { return row('a', x, i, aOn[i]); }).join('');
+      $('dlS').innerHTML = S.length ? '<h3>Altyazı</h3>' + S.map(function (x, i) { return row('s', x, i, pref.s.indexOf(trackKey(x)) > -1); }).join('') : '';
+      $('dlErr').hidden = true; $('dlDlg').hidden = false;
+      setTimeout(function () { $('dlOk').focus(); }, 30);
+      dlDone = resolve;
+    }).catch(function () { clearTimeout(t); resolve({ keep: null }); });
+  });
+}
+function dlClose(v) { $('dlDlg').hidden = true; var f = dlDone; dlDone = null; if (f) f(v); }
+$('dlCancel').onclick = function () { dlClose(null); };
+$('dlDlg').addEventListener('click', function (e) { if (e.target === this) dlClose(null); });
+$('dlDlg').addEventListener('keydown', function (e) { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); dlClose(null); } });
+$('dlOk').onclick = function () {
+  var box = [].slice.call($('dlDlg').querySelectorAll('input[type=checkbox]'));
+  var on = function (k) { return box.filter(function (b) { return b.dataset.k === k && b.checked; }); };
+  var a = on('a'), sb = on('s');
+  if (!a.length) { $('dlErr').textContent = 'En az bir ses seç.'; $('dlErr').hidden = false; return; }
+  var keys = function (l) { return l.map(function (b) { return b.dataset.key; }); };
+  lsSet('dlPick', { a: keys(a), s: keys(sb) });   // bir dahaki indirmede aynı diller hazır işaretli gelir
+  var nm = function (l) { return l.map(function (b) { return b.parentNode.querySelector('span').firstChild.textContent.split(' · ')[0].trim(); }).join(', '); };
+  dlClose({ keep: { a: a.map(function (b) { return +b.dataset.i; }), s: sb.map(function (b) { return +b.dataset.i; }) },
+    txt: 'Ses: ' + nm(a) + (sb.length ? ' · Altyazı: ' + nm(sb) : '') });
+};
 function recToggle() {
   var p = active;
   if (!p || !p.ch) return toast('Önce bir kanal seç');
@@ -2654,12 +2710,16 @@ function recToggle() {
   if (p.rec) return recStop(p);
   var c = p.ch, ua = c.ua || settings.ua || '', ref = c.referrer || '', name = recName(c);
   if (isVod(p)) {
-    // Film / bölüm: dosyanın kendisi indirilir (kopan bağlantıda kaldığı yerden devam eder)
-    return mJSON('rec/start', null, JSON.stringify({ kind: 'download', url: c.url, name: name, ua: ua, ref: ref,
+    // Film / bölüm: dosyanın kendisi indirilir (kopan bağlantıda kaldığı yerden devam eder).
+    // Birden çok ses / altyazı varsa önce hangileri dosyaya girsin diye sorulur (Türkçe, İngilizce…)
+    return dlAsk(c, ua, ref).then(function (pick) {
+      if (!pick) return;
+      return mJSON('rec/start', null, JSON.stringify({ kind: 'download', url: c.url, name: name, ua: ua, ref: ref, keep: pick.keep || undefined,
       ad: { d: adGet(c, null), dl: lchGet(c).dl || null } })).then(function (r) {
       DL[r.id] = r; pollRecs();
-      toastAct('İndiriliyor: ' + r.name.replace(/\.[a-z0-9]+$/i, '') + ' · bitince her oynatıcıda açılan MP4 olur', 'Klasörü aç', function () { mJSON('rec/open', { id: r.id }, ''); });
+      toastAct('İndiriliyor: ' + r.name.replace(/\.[a-z0-9]+$/i, '') + (pick.txt ? ' · ' + pick.txt : '') + ' · bitince her oynatıcıda açılan MP4 olur', 'Klasörü aç', function () { mJSON('rec/open', { id: r.id }, ''); });
     }).catch(function (e) { toast('İndirme başlamadı: ' + e.message); });
+    });
   }
   var body = p.hls ? { kind: 'push', name: name, ext: 'ts' }
     : (p.ff || (p.mts && p.viaProxy)) ? { kind: 'attach', sid: p.sid, name: name }
