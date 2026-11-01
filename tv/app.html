@@ -1,4 +1,4 @@
-<script>window.__tvBuilt="2.1.44";</script>
+<script>window.__tvBuilt="2.1.45";</script>
 <title>Gelecek IPTV</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -747,6 +747,7 @@ html.is-android body.ui2 .home, html.is-android body.ui2 .rundown { grid-column:
     <p class="hint" id="dlName"></p>
     <div class="dl-grp" id="dlA"></div>
     <div class="dl-grp" id="dlS"></div>
+    <div class="dl-grp" id="dlT"></div>
     <p class="hint">Dosya her oynatıcıda açılan MP4 olur. İşaretlemediğin diller dosyaya girmez, dosya küçülür. (İndirme süresi değişmez: film tek parça iner, seçim sonda yapılır.)</p>
     <p class="err" id="dlErr" hidden></p>
     <div class="row-actions"><button class="btn ghost" type="button" id="dlCancel">Vazgeç</button><button class="btn" type="button" id="dlOk">İndir</button></div>
@@ -2664,14 +2665,21 @@ function recPush(p, buf) {
   }).catch(function () {});
 }
 // İndirme seçimi: { keep: { a: [iz no], s: [iz no] } | null (hepsi), txt } ya da null (vazgeçildi)
-var dlDone = null;
+var dlDone = null, dlExt = null;
 function dlAsk(c, ua, ref) {
   return new Promise(function (resolve) {
     var t = setTimeout(function () { resolve({ keep: null }); }, 12000);   // bilgi gelmezse her şeyiyle indir (eskisi gibi)
+    var ext = active && active.ch === c ? active.ext : null;   // filme yüklenen (internetten bulunan) Türkçe altyazı
     probeInfo(c, ua, ref).then(function (info) {
       clearTimeout(t);
       var A = (info && info.audio) || [], S = ((info && info.subs) || []).filter(function (x) { return x.text; });
-      if (A.length <= 1 && !S.length) return resolve({ keep: null });
+      var hasTrA = A.some(isTr);
+      if (A.length <= 1 && !S.length && !ext) return resolve({ keep: null });
+      dlExt = ext ? { cues: ext.cues.map(function (q) { var d = subDelay(c); return { a: +(q.a + d).toFixed(3), z: +(q.z + d).toFixed(3), t: q.t }; }), name: ext.name } : null;
+      $('dlT').innerHTML = '<h3>Türkçe</h3>' + (ext
+        ? '<label class="dl-row"><input type="checkbox" id="dlDub"' + (hasTrA ? '' : ' checked') + '><span>Türkçe seslendir <small>yapay ses · yüklediğin Türkçe altyazıdan · filmin sesi altta kısık duyulur</small></span></label>' +
+          '<label class="dl-row"><input type="checkbox" id="dlSub" checked><span>Türkçe altyazıyı dosyaya göm <small>' + esc(ext.name || '') + '</small></span></label>'
+        : '<p class="hint" style="margin:0">Türkçe seslendirme için önce filmi aç › <b>Dil</b> › <b>İnternetten Türkçe altyazı ara</b>, altyazıyı yükle, sonra İndir\'e bas.</p>');
       var pref = lsGet('dlPick', null) || { a: ['tr', 'en'], s: ['tr', 'en'] };
       var row = function (k, x, i, on) {
         var extra = k === 'a' ? [String(x.codec || '').toUpperCase(), x.ch || ''].filter(Boolean).join(' ') : '';
@@ -2700,8 +2708,10 @@ $('dlOk').onclick = function () {
   var keys = function (l) { return l.map(function (b) { return b.dataset.key; }); };
   lsSet('dlPick', { a: keys(a), s: keys(sb) });   // bir dahaki indirmede aynı diller hazır işaretli gelir
   var nm = function (l) { return l.map(function (b) { return b.parentNode.querySelector('span').firstChild.textContent.split(' · ')[0].trim(); }).join(', '); };
+  var dub = $('dlDub') && $('dlDub').checked, emb = $('dlSub') && $('dlSub').checked;
   dlClose({ keep: { a: a.map(function (b) { return +b.dataset.i; }), s: sb.map(function (b) { return +b.dataset.i; }) },
-    txt: 'Ses: ' + nm(a) + (sb.length ? ' · Altyazı: ' + nm(sb) : '') });
+    dub: dlExt && (dub || emb) ? { cues: dlExt.cues, dub: !!dub, sub: !!emb } : null,
+    txt: 'Ses: ' + nm(a) + (sb.length ? ' · Altyazı: ' + nm(sb) : '') + (dub ? ' · bitince Türkçe seslendirilecek' : emb ? ' · Türkçe altyazı gömülecek' : '') });
 };
 function recToggle() {
   var p = active;
@@ -2714,7 +2724,7 @@ function recToggle() {
     // Birden çok ses / altyazı varsa önce hangileri dosyaya girsin diye sorulur (Türkçe, İngilizce…)
     return dlAsk(c, ua, ref).then(function (pick) {
       if (!pick) return;
-      return mJSON('rec/start', null, JSON.stringify({ kind: 'download', url: c.url, name: name, ua: ua, ref: ref, keep: pick.keep || undefined,
+      return mJSON('rec/start', null, JSON.stringify({ kind: 'download', url: c.url, name: name, ua: ua, ref: ref, keep: pick.keep || undefined, dub: pick.dub || undefined,
       ad: { d: adGet(c, null), dl: lchGet(c).dl || null } })).then(function (r) {
       DL[r.id] = r; pollRecs();
       toastAct('İndiriliyor: ' + r.name.replace(/\.[a-z0-9]+$/i, '') + (pick.txt ? ' · ' + pick.txt : '') + ' · bitince her oynatıcıda açılan MP4 olur', 'Klasörü aç', function () { mJSON('rec/open', { id: r.id }, ''); });
@@ -2759,7 +2769,7 @@ function pollRecs() {
         DL[id] = r;
         if (r.done && !r.finalizing) {
           delete DL[id];
-          if (r.ok) toastAct('İndirme bitti: ' + r.name + ' · ' + fmtSize(r.bytes), 'Klasörü aç', function () { mJSON('rec/open', { id: id }, ''); });
+          if (r.ok) toastAct('İndirme bitti: ' + r.name + ' · ' + fmtSize(r.bytes) + (r.dub ? (r.dubOk ? ' · Türkçe seslendirme / altyazı eklendi' : ' · Seslendirme eklenemedi (' + (r.dubErr || 'hata') + '), film olduğu gibi duruyor') : ''), 'Klasörü aç', function () { mJSON('rec/open', { id: id }, ''); });
           else toast('İndirme durdu: ' + (r.error || r.name));
         }
       });
@@ -2772,7 +2782,7 @@ function updDl() {
   c.hidden = !ids.length;
   if (!ids.length) return;
   var r = DL[ids[0]], pct = r.total ? Math.min(99, Math.floor(r.bytes / r.total * 100)) : null;
-  c.textContent = (r.finalizing ? '⬇ Hazırlanıyor' : '⬇ ' + (pct != null ? '%' + pct : fmtSize(r.bytes))) + (ids.length > 1 ? ' +' + (ids.length - 1) : '');
+  c.textContent = (r.finalizing ? (r.stage ? '⬇ ' + r.stage : '⬇ Hazırlanıyor') : '⬇ ' + (pct != null ? '%' + pct : fmtSize(r.bytes))) + (ids.length > 1 ? ' +' + (ids.length - 1) : '');
   c.title = ids.map(function (id) { var x = DL[id]; return x.name + ' · ' + fmtSize(x.bytes) + (x.total ? ' / ' + fmtSize(x.total) : ''); }).join('\n') + '\nTıkla: klasörü aç';
 }
 function updRecBtn() {
