@@ -1,4 +1,4 @@
-<script>window.__tvBuilt="2.1.35";</script>
+<script>window.__tvBuilt="2.1.36";</script>
 <title>Gelecek IPTV</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -1314,7 +1314,11 @@ html.is-android body.ui2 .home, html.is-android body.ui2 .rundown { grid-column:
     if (open) return;
     var t = e.target, tag = t && t.tagName, k = e.keyCode;
     if (tag !== 'INPUT' && tag !== 'TEXTAREA' && tag !== 'SELECT') return;
-    if (k === K.ENTER && t._tzRO && !e.__rmt) { e.preventDefault(); e.stopPropagation(); startTyping(t); return; }   // telefon kumandasından gelen OK klavye açmaz (yazı telefondan gelir)
+    if (k === K.ENTER && t._tzRO && !e.__rmt) { e.preventDefault(); e.stopPropagation(); startTyping(t); return; }
+    // ana sayfadaki arama kutusu / liste seçimi: satır sırasıyla gez (Canlı-Film-Dizi, şeritler, menü)
+    if (window.__homeNav && t.closest && t.closest('#home') && (k === K.UP || k === K.DOWN || ((k === K.LEFT || k === K.RIGHT) && (tag === 'SELECT' || t._tzRO)))) {
+      e.preventDefault(); e.stopImmediatePropagation(); window.__homeNav(t, { 37: 'ArrowLeft', 38: 'ArrowUp', 39: 'ArrowRight', 40: 'ArrowDown' }[k]); return;
+    }   // telefon kumandasından gelen OK klavye açmaz (yazı telefondan gelir)
     if (k === K.UP || k === K.DOWN) { e.preventDefault(); e.stopPropagation(); moveFocus(t, DIR[k]); }
     else if (tag === 'INPUT' && t._tzRO && (k === K.LEFT || k === K.RIGHT)) { if (moveFocus(t, DIR[k])) { e.preventDefault(); e.stopPropagation(); } }   // yazmıyorken ◀ ▶ doğrudan yandakine
     else if (tag === 'INPUT' && (k === K.LEFT || k === K.RIGHT)) {
@@ -1843,10 +1847,27 @@ function cacheGet(id) {
 }
 function cachePut(id, text, at) {
   if (!idb) return;
+  try { idb.transaction('lists', 'readwrite').objectStore('lists').delete(id + '#p'); } catch (e) {}   // yeni metin geldi: eski işlenmiş hali geçersiz
   var s = seal(text), rec = s ? { text: s, enc: 1, at: at || Date.now() } : { text: text, at: at || Date.now() };
   try { idb.transaction('lists', 'readwrite').objectStore('lists').put(rec, id); } catch (e) {}
 }
-function cacheDel(id) { if (!idb) return; try { idb.transaction('lists', 'readwrite').objectStore('lists').delete(id); } catch (e) {} }
+// İşlenmiş liste önbelleği (TV / Android): 50 bin+ kayıtlı listeyi her açılışta baştan işlemek TV'de 15-25 sn sürüyor;
+// hazır nesneleri IndexedDB'den okumak birkaç kat hızlı. Şifreli önbellek kullanan Windows'ta kapalı (içinde açık linkler olur).
+var PARSED_ON = !SEAL && !DESKTOP, PARSED_V = 'p1:' + (window.__tvVer || window.__tvBuilt || (NATIVE && NATIVE.appVersionName ? (function () { try { return NATIVE.appVersionName(); } catch (e) { return ''; } })() : ''));   // sürüm değişince yeniden işlenir
+function parsedPut(id, d) {
+  if (!idb || !PARSED_ON) return;
+  try { idb.transaction('lists', 'readwrite').objectStore('lists').put({ v: PARSED_V, at: Date.now(), channels: d.channels, groups: d.groups, epgUrl: d.epgUrl || '' }, id + '#p'); } catch (e) {}
+}
+function parsedGet(id) {
+  return new Promise(function (res) {
+    if (!idb || !PARSED_ON) return res(null);
+    try { var q = idb.transaction('lists').objectStore('lists').get(id + '#p'); q.onsuccess = function () { var r = q.result; res(r && r.v === PARSED_V && r.channels ? r : null); }; q.onerror = function () { res(null); }; }
+    catch (e) { res(null); }
+  });
+}
+function cacheDel(id) { if (idb) { try { idb.transaction('lists', 'readwrite').objectStore('lists').delete(id + '#p'); } catch (e) {} }
+  cacheDel0(id); }
+function cacheDel0(id) { if (!idb) return; try { idb.transaction('lists', 'readwrite').objectStore('lists').delete(id); } catch (e) {} }
 
 /* ================= state ================= */
 var DEMO_ID = 'demo';
@@ -1899,8 +1920,12 @@ function toastAct(msg, label, fn) {
 /* ================= playlist loading ================= */
 function activePl() { return playlists.find(function (p) { return p.id === activeId; }) || playlists[0]; }
 
-function applyText(text) {
+function applyText(text, storeId) {
   data = M3U.parse(text);
+  if (storeId) parsedPut(storeId, data);   // işlenmiş hali de sakla (bir sonraki açılışta yeniden işlenmesin) — buildCatalog değiştirmeden önce
+  applyData();
+}
+function applyData() {
   buildCatalog();
   if (!cat[kind === 'all' ? 'all' : kind].length) kind = cat.live.length ? 'live' : cat.movie.length ? 'movie' : cat.series.length ? 'series' : 'live';
   var g = kindGroups();
@@ -1915,7 +1940,13 @@ function loadPlaylist(force) {
   if (pl.id === DEMO_ID) { applyText(DEMO_M3U); return Promise.resolve(); }
   // büyük listede (TV'de) okuyup işlemek birkaç saniye sürer: o arada ana sayfa son bilinen sayılarla "yükleniyor" gösterir
   listLoading = !data.channels.length; renderHome();
-  return cacheGet(pl.id).then(function (c) {
+  return parsedGet(pl.id).then(function (pc) {
+   if (pc && !force) {   // hazır işlenmiş liste: hemen aç; liste eskiyse arka planda yenile
+     var t0 = Date.now(); data = { channels: pc.channels, groups: pc.groups, epgUrl: pc.epgUrl }; applyData(); applyDone(pl, t0);
+     if (Date.now() - pc.at < 12 * 3600e3 || plType(pl) === 'file') return;
+     return plText(pl).then(function (text) { cachePut(pl.id, text); if (plType(pl) === 'xtream') secSet('playlists', playlists); applyTextTimed(text, pl); toast('Liste güncellendi · ' + data.channels.length + ' kanal'); }, function () {});
+   }
+   return cacheGet(pl.id).then(function (c) {
     var fresh = c && Date.now() - c.at < 12 * 3600e3;
     if (c) { applyTextTimed(c.text, pl); }        // instant start from cache
     if (c && (fresh || plType(pl) === 'file') && !force) return;
@@ -1929,11 +1960,15 @@ function loadPlaylist(force) {
       if (!c) showListMsg('Liste yüklenemedi: ' + e.message + (PLATFORM === 'web' ? '. Sağlayıcı tarayıcı erişimine izin vermiyor olabilir; ayarlardan CORS proxy ekle ya da Windows/Android sürümünü kullan.' : ''));
       else toast(force ? 'Güncellenemedi: ' + e.message : 'Güncellenemedi, kayıtlı liste gösteriliyor');
     });
+   });
   });
 }
 
 function applyTextTimed(text, pl) {
-  var t0 = Date.now(); applyText(text); listLoading = false;
+  var t0 = Date.now(); applyText(text, pl.id); applyDone(pl, t0);
+}
+function applyDone(pl, t0) {
+  listLoading = false;
   var hn = lsGet('homeN', {}) || {}; hn[pl.id] = { live: cat.live.length, movie: cat.movie.length, series: cat.series.length }; lsSet('homeN', hn);
   renderHome();
   if (!window.__bootMs) { try { window.__bootMs = Math.round(Date.now() - (performance.timeOrigin || performance.timing.navigationStart)); window.__parseMs = Date.now() - t0; } catch (e) {} }
@@ -5111,6 +5146,33 @@ function uiApply() {
   if (ps) { var to = UI2 ? $('hPl') : document.querySelector('.rail'); if (ps.parentNode !== to) { if (UI2) to.appendChild(ps); else to.insertBefore(ps, $('groups').previousElementSibling); } }
   $('uiNew').checked = UI2; $('epgOn').checked = EPG_ON; $('logosOn').checked = LOGOS;
 }
+// Ana sayfada kumanda: satırlar sabit sırada — ▲▼ satır değiştirir (en yakın sütuna), ◀▶ yalnız satır içinde gezer
+function homeRows() {
+  var vis = function (x) { return x && !x.hidden && x.offsetParent !== null && x.getClientRects().length; };
+  var rows = [[ $('hq') ], [].filter.call(document.querySelectorAll('#home .h-tile'), vis)];
+  [].forEach.call(document.querySelectorAll('#home .h-strip .h-row'), function (r) { rows.push([].filter.call(r.querySelectorAll('.h-it'), vis)); });
+  rows.push([].filter.call(document.querySelectorAll('#home .h-links button'), vis));
+  rows.push([].filter.call(document.querySelectorAll('#hPl select, #hPl button'), vis));
+  return rows.map(function (r) { return r.filter(vis); }).filter(function (r) { return r.length; });
+}
+window.__homeNav = function (c, k) { homeNav(c, k); };
+function homeNav(cur, key) {
+  var R = homeRows(), ri = -1, ci = -1;
+  for (var i = 0; i < R.length && ri < 0; i++) { var k = R[i].indexOf(cur); if (k > -1) { ri = i; ci = k; } }
+  if (ri < 0) { var t = (R[1] || R[0])[0]; if (t) t.focus(); return; }
+  var to = null;
+  if (key === 'ArrowLeft') to = R[ri][ci - 1];
+  else if (key === 'ArrowRight') to = R[ri][ci + 1];
+  else {
+    var nr = R[ri + (key === 'ArrowDown' ? 1 : -1)];
+    if (nr && ri === 0) to = nr.filter(function (x) { return x.getAttribute('aria-current') === 'true'; })[0] || nr[0];   // aramadan ▼: Canlı (ya da son girilen bölüm)
+    else if (nr) {   // yeni satırda yatayda en yakın öğe
+      var cr = cur.getBoundingClientRect(), cx = cr.left + cr.width / 2, bd = 1e9;
+      nr.forEach(function (x) { var r = x.getBoundingClientRect(), d = Math.abs(r.left + r.width / 2 - cx); if (d < bd) { bd = d; to = x; } });
+    }
+  }
+  if (to) { to.focus(); if (to.scrollIntoView) to.scrollIntoView({ block: 'nearest' }); }
+}
 /* ---------- ana sayfa şeritleri: İzlemeye devam et · Son izlenen kanallar · Favoriler ---------- */
 function posItem(k) {
   var c = cat.byKey && cat.byKey[k]; if (c) return c;
@@ -5266,7 +5328,7 @@ document.addEventListener('keydown', function (e) {
   var inHome = $('home').contains(document.activeElement);
   if (uiMode === 'home' && !inHome && (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Enter') && document.activeElement === document.body) { var t0 = document.querySelector('.h-tile:not([hidden])'); if (t0) { e.preventDefault(); t0.focus(); } return; }
   if (inHome && (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
-    if (window.__tzMove) { e.preventDefault(); e.stopPropagation(); window.__tzMove(document.activeElement, { ArrowDown: 'd', ArrowUp: 'u', ArrowLeft: 'l', ArrowRight: 'r' }[e.key]); return; }   // TV: ekrandaki konuma göre
+    if (TIZEN || PLATFORM === 'android') { e.preventDefault(); e.stopPropagation(); homeNav(document.activeElement, e.key); return; }   // TV: satır satır (arama / Canlı-Film-Dizi / şeritler / menü / liste)
     var f = [].filter.call($('home').querySelectorAll('button, select'), function (x) { return !x.hidden && x.offsetParent !== null; });
     var i = f.indexOf(document.activeElement), d = e.key === 'ArrowDown' || e.key === 'ArrowRight' ? 1 : -1;
     if (i > -1 && f[i + d]) { e.preventDefault(); e.stopPropagation(); f[i + d].focus(); }
