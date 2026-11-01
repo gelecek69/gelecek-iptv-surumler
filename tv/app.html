@@ -1,4 +1,4 @@
-<script>window.__tvBuilt="2.1.41";</script>
+<script>window.__tvBuilt="2.1.42";</script>
 <title>Gelecek IPTV</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -2909,8 +2909,12 @@ Pane.prototype.play = function (c, list, auto) {
 
 Pane.prototype.stop = function () { if (this.rec) recStop(this); this.token++; this.teardown(); this.ff = null; };
 
+// Samsung TV ve Android'de sayfanın kendi oynatıcısı hiç çalışmaz: yayını TV'nin / telefonun oynatıcısı açar.
+// (Arkada gizlice çalışırsa TV'nin tek görüntü çözücüsünü kapar → ses var görüntü yok, arkadan eski kanalın sesi)
+var WEB_PLAYER_OFF = !!(TIZEN || (NATIVE && NATIVE.play));
 Pane.prototype.start = function () {
   var c = this.ch; if (!c) return;
+  if (WEB_PLAYER_OFF) { this.teardown(); return; }
   var my = ++this.token;
   this.teardown();
   applyAudio();
@@ -3489,6 +3493,7 @@ function play(c, list) {
   renderGroups();   // Son izlenenler sayısı güncel kalsın
   if (TIZEN) {   // Samsung TV: AVPlay tam ekran oynatıcı
     playing = c; playView = list; drawRows();
+    panes.forEach(function (p) { if (p.hls || p.mts || p.video.getAttribute('src')) { try { p.teardown(); } catch (e) {} } });
     TIZEN.play(list, list.indexOf(c));
     return;
   }
