@@ -1,4 +1,4 @@
-<script>window.__tvBuilt="2.1.36";</script>
+<script>window.__tvBuilt="2.1.37";</script>
 <title>Gelecek IPTV</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -979,6 +979,22 @@ html.is-android body.ui2 .home, html.is-android body.ui2 .rundown { grid-column:
     return bits.join(' · ');
   }
 
+  // Çok yüksek bit hızlı yayın (RAW / 4K, 40 Mbps+): ev interneti ve TV çoğu zaman yetişemez → görüntü gider, ses sürer
+  function videoRate() {
+    try { var info = av.getCurrentStreamInfo ? av.getCurrentStreamInfo() : [];
+      for (var i = 0; i < (info || []).length; i++) { if (info[i].type !== 'VIDEO') continue;
+        var x = typeof info[i].extra_info === 'string' ? JSON.parse(info[i].extra_info) : (info[i].extra_info || {});
+        if (+x.Bit_rate > 0) return +x.Bit_rate; } } catch (e) {}
+    return 0;
+  }
+  function rateWarn(c) {
+    var r = videoRate();
+    if (r >= 40e6 || /\b(raw|8k|4k|uhd|2160p)\b/i.test((c.name || '') + ' ' + (c.group || '')) && r >= 25e6) {
+      toast('Bu yayın çok yüksek kaliteli (' + Math.round(r / 1e6) + ' Mbps). Görüntü giderse aynı kanalın FHD / HD sürümünü seç.');
+      clearTimeout(toast.t); toast.t = setTimeout(function () { el.tst.style.display = 'none'; }, 9000);
+    }
+  }
+
   /* ---------- oynatma ---------- */
   var stoppedAt = 0, zapT2 = 0, prepT = 0, bufT = 0, bufOn = false, BUF_MS = window.__tzBufMs || 10000;
   function stopAv() {
@@ -1048,6 +1064,7 @@ html.is-android body.ui2 .home, html.is-android body.ui2 .rundown { grid-column:
         else go();
         tickT = setInterval(function () { if (open) { updBar(); extTick(); } }, 500);
         loadExt(c);
+        setTimeout(function () { if (ch === c && open) rateWarn(c); }, 2500);
       }, function (e) { if (ch === c) again('Yayın açılamadı (' + e + ')'); });
     } catch (e) { again('Yayın açılamadı (' + (e && e.message || e) + ')'); }
   }
