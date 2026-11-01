@@ -1,4 +1,4 @@
-<script>window.__tvBuilt="2.1.37";</script>
+<script>window.__tvBuilt="2.1.38";</script>
 <title>Gelecek IPTV</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -966,6 +966,7 @@ html.is-android body.ui2 .home, html.is-android body.ui2 .rundown { grid-column:
   function techLine(c) {
     var bits = [];
     if (xtLive(c)) bits.push(c._hlsTry ? 'HLS' : 'TS');
+    var nt = netType(); if (nt) bits.push(nt === 'wifi' ? 'Wi-Fi' : 'Kablo');
     try {
       var info = av.getCurrentStreamInfo ? av.getCurrentStreamInfo() : [];
       for (var i = 0; i < (info || []).length; i++) {
@@ -995,6 +996,26 @@ html.is-android body.ui2 .home, html.is-android body.ui2 .rundown { grid-column:
     }
   }
 
+  /* ---------- bağlantıya göre kalite: Wi-Fi'da RAW / 4K yerine aynı kanalın FHD sürümü; kabloda RAW takılırsa FHD ---------- */
+  var LIGHT = 'auto'; try { LIGHT = localStorage.getItem('tz_light') || 'auto'; } catch (e) {}
+  function netType() {
+    try { if (window.__tzNet) return window.__tzNet; var t = webapis.network.getActiveConnectionType(); return t === 1 || t === 'WIFI' ? 'wifi' : t === 3 || t === 'ETHERNET' ? 'kablo' : ''; } catch (e) { return ''; }
+  }
+  function heavy(c) { var q = H().qRank; return !!(q && c && !isVod(c) && q(c) >= 5); }
+  function lightAlt(c) {
+    var h = H(); if (!h.altOf || !h.qRank) return null;
+    var a = h.altOf(c).filter(function (x) { return x.key !== c.key && h.qRank(x) < 5 && !isVod(x); });
+    a.sort(function (x, y) { return h.qRank(y) - h.qRank(x); });   // en iyisi önce (FHD › HD › …)
+    return a[0] || null;
+  }
+  function autoLight(c, why) {
+    if (LIGHT !== 'auto' || !heavy(c)) return null;
+    var alt = lightAlt(c); if (!alt) return null;
+    toast(why === 'stall' ? '“' + c.name + '” takıldı → “' + alt.name + '” açılıyor' : 'Wi-Fi bağlantısı: “' + c.name + '” yerine “' + alt.name + '” açıldı (RAW / 4K çok veri ister)');
+    clearTimeout(toast.t); toast.t = setTimeout(function () { el.tst.style.display = 'none'; }, 7000);
+    return alt;
+  }
+
   /* ---------- oynatma ---------- */
   var stoppedAt = 0, zapT2 = 0, prepT = 0, bufT = 0, bufOn = false, BUF_MS = window.__tzBufMs || 10000;
   function stopAv() {
@@ -1013,6 +1034,7 @@ html.is-android body.ui2 .home, html.is-android body.ui2 .rundown { grid-column:
     start2();
   }
   function start2() {
+    if (netType() === 'wifi') { var lt = autoLight(ch, 'wifi'); if (lt) ch = lt; }
     var c = ch; savePos();
     stopAv(); tracks = { A: [], S: [] }; subsOn = false; el.sub.innerHTML = ''; extCues = null;
     status('Bağlanıyor…'); showOsd();
@@ -1069,6 +1091,7 @@ html.is-android body.ui2 .home, html.is-android body.ui2 .rundown { grid-column:
     } catch (e) { again('Yayın açılamadı (' + (e && e.message || e) + ')'); }
   }
   function stalled(c) {
+    var lt2 = autoLight(c, 'stall'); if (lt2) { ch = lt2; retry = 0; stopAv(); status('Bağlanıyor…'); clearTimeout(retryT); retryT = setTimeout(function () { if (open) start(); }, 300); return; }   // kabloda da RAW takılırsa FHD
     var now = Date.now();
     c._stallN = (c._lastStall && now - c._lastStall < 120000) ? (c._stallN || 0) + 1 : 1; c._lastStall = now;
     if (c._stallN >= 2 && FMT === 'auto') { c._tsOnly = !c._tsOnly; c._stallN = 0; }   // bu biçimde takılıp duruyor: öbürünü dene
@@ -1164,6 +1187,10 @@ html.is-android body.ui2 .home, html.is-android body.ui2 .rundown { grid-column:
     if (!tracks.A.length) items.unshift({ h: 'Ses', label: 'Bu yayında tek ses var', on: true, run: function () {} });
     AR.forEach(function (r) { items.push({ h: 'Ekran', label: r[1], on: arMode === r[0], ar: 1, run: function () { arSet(r[0]); } }); });
     items.push({ h: 'Diğer', label: 'Hesap · listeler ve giriş bilgileri', ar: 1, run: function () { var f = window.__iptvOpenSettings; setTimeout(function () { f && f(); }, 50); } });
+    items.push({ h: 'Diğer', label: 'Wi-Fi\'da RAW / 4K yerine FHD aç: ' + (LIGHT === 'auto' ? 'Açık' : 'Kapalı'), ar: 1, run: function () {
+      LIGHT = LIGHT === 'auto' ? 'off' : 'auto'; try { localStorage.setItem('tz_light', LIGHT); } catch (e) {}
+      toast('Wi-Fi\'da RAW / 4K yerine FHD: ' + (LIGHT === 'auto' ? 'açık' : 'kapalı'));
+    } });
     items.push({ h: 'Diğer', label: 'Güncellemeleri denetle (şu an ' + (TV_VER || '?') + ')', ar: 1, run: function () { tvCheckUpd(true); } });
     if (xtLive(ch)) FMTS.forEach(function (f) { items.push({ h: 'Yayın biçimi', label: f[1], on: FMT === f[0], ar: 1, run: function () {
       FMT = f[0]; try { localStorage.setItem('tz_fmt', FMT); } catch (e) {}
@@ -5589,6 +5616,7 @@ function boot() {
 // Android: oynatıcıdan dönünce son izlenen kanalı listede seç
 // Samsung TV oynatıcısının kullandığı iç işlevler (tizen.js)
 window.__iptvHost = {
+  qRank: qRank, altOf: function (c) { return altVersions({ ch: c, list: [c] }); },
   posGet: posGet, posSave: posSave, lang2: lang2, LANG_TR: LANG_TR, isTr: isTr, audioIsTr: audioIsTr,
   epgNow: function (c) { return EPG_ON ? epgNow(c) : null; }, epgNext: function (c) { return EPG_ON ? epgNext(c) : null; },
   epgGet: function (c) { return EPG_ON ? epgGet(c) : Promise.reject(new Error('kapalı')); }, hhmm: hhmm, fmtTime: fmtTime,
