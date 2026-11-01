@@ -1,4 +1,4 @@
-<script>window.__tvBuilt="2.1.39";</script>
+<script>window.__tvBuilt="2.1.40";</script>
 <title>Gelecek IPTV</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -1017,6 +1017,28 @@ html.is-android body.ui2 .home, html.is-android body.ui2 .rundown { grid-column:
     return alt;
   }
 
+  /* ---------- oynatıcıyı sıfırla: uygulama kendini yeniden açar, izlenen kanal / film kaldığı yerden geri gelir ----------
+     (Samsung'un görüntü çözücüsü bazen takılı kalıyor: ses gelir görüntü gelmez; uygulamayı kapatıp açmak düzeltiyor) */
+  function resetPlayer(why) {
+    var c = ch; if (!c) return;
+    try { savePos(); } catch (e) {}
+    try { localStorage.setItem('tv.resume', JSON.stringify({ at: Date.now(), key: c.key, kind: c.kind || 'live', why: why || '',
+      c: { name: c.name, url: c.url, kind: c.kind, key: c.key, group: c.group, ua: c.ua, seriesName: c.seriesName, season: c.season, ep: c.ep, title: c.title, parentKey: c.parentKey, logo: c.logo } }));
+      localStorage.setItem('tv.resetAt', String(Date.now())); } catch (e) {}
+    status(why === 'auto' ? 'Oynatıcı takıldı, yeniden başlatılıyor…' : 'Oynatıcı yeniden başlatılıyor…');
+    try { stopAv(); } catch (e) {}
+    setTimeout(function () { location.replace('index.html'); }, 700);
+  }
+  // otomatik: kısa sürede farklı kanallarda üst üste takılma / açılmama olursa (5 dk'da en çok bir kere)
+  var trouble = [];
+  function troubleNote(c) {
+    var now = Date.now(); trouble = trouble.filter(function (t) { return now - t.at < 180000; }); trouble.push({ at: now, key: c && c.key });
+    var keys = {}; trouble.forEach(function (t) { keys[t.key] = 1; });
+    var last = +(lsg('tv.resetAt') || 0);
+    if (trouble.length >= 4 && Object.keys(keys).length >= 2 && now - last > 300000) { trouble = []; resetPlayer('auto'); return true; }
+    return false;
+  }
+
   /* ---------- oynatma ---------- */
   var stoppedAt = 0, zapT2 = 0, prepT = 0, bufT = 0, bufOn = false, BUF_MS = window.__tzBufMs || 10000;
   function stopAv() {
@@ -1092,6 +1114,7 @@ html.is-android body.ui2 .home, html.is-android body.ui2 .rundown { grid-column:
     } catch (e) { again('Yayın açılamadı (' + (e && e.message || e) + ')'); }
   }
   function stalled(c) {
+    if (troubleNote(c)) return;
     var lt2 = autoLight(c, 'stall'); if (lt2) { ch = lt2; retry = 0; stopAv(); status('Bağlanıyor…'); clearTimeout(retryT); retryT = setTimeout(function () { if (open) start(); }, 300); return; }   // kabloda da RAW takılırsa FHD
     var now = Date.now();
     c._stallN = (c._lastStall && now - c._lastStall < 120000) ? (c._stallN || 0) + 1 : 1; c._lastStall = now;
@@ -1101,6 +1124,7 @@ html.is-android body.ui2 .home, html.is-android body.ui2 .rundown { grid-column:
   }
   function again(msg) {
     var c = ch; clearTimeout(retryT);
+    if (c && retry >= 2 && troubleNote(c)) return;
     if (c && c._hlsTry && !c._tsOnly && FMT === 'auto') { c._tsOnly = true; retry = 0; stopAv(); status('Bağlanıyor…'); retryT = setTimeout(function () { if (ch === c && open) start(); }, 300); return; }   // HLS olmadı: .ts
     if (++retry > (isVod(c) ? 3 : 8)) { status(msg + '. Başka kanal seç ya da ↩ ile listeye dön.'); return; }
     status(msg);
@@ -1192,6 +1216,7 @@ html.is-android body.ui2 .home, html.is-android body.ui2 .rundown { grid-column:
       LIGHT = LIGHT === 'auto' ? 'off' : 'auto'; try { localStorage.setItem('tz_light', LIGHT); } catch (e) {}
       toast('Wi-Fi\'da RAW / 4K yerine FHD: ' + (LIGHT === 'auto' ? 'açık' : 'kapalı'));
     } });
+    items.push({ h: 'Diğer', label: 'Oynatıcıyı sıfırla (ses var görüntü yoksa)', ar: 1, run: function () { resetPlayer('menu'); } });
     items.push({ h: 'Diğer', label: 'Güncellemeleri denetle (şu an ' + (TV_VER || '?') + ')', ar: 1, run: function () { tvCheckUpd(true); } });
     if (xtLive(ch)) FMTS.forEach(function (f) { items.push({ h: 'Yayın biçimi', label: f[1], on: FMT === f[0], ar: 1, run: function () {
       FMT = f[0]; try { localStorage.setItem('tz_fmt', FMT); } catch (e) {}
@@ -1983,7 +2008,7 @@ function applyData() {
 var listLoading = false;
 function loadPlaylist(force) {
   var pl = activePl();
-  if (pl.id === DEMO_ID) { applyText(DEMO_M3U); return Promise.resolve(); }
+  if (pl.id === DEMO_ID) { applyText(DEMO_M3U); if (TIZEN) setTimeout(tvResume, 300); return Promise.resolve(); }
   // büyük listede (TV'de) okuyup işlemek birkaç saniye sürer: o arada ana sayfa son bilinen sayılarla "yükleniyor" gösterir
   listLoading = !data.channels.length; renderHome();
   return parsedGet(pl.id).then(function (pc) {
@@ -2015,9 +2040,22 @@ function applyTextTimed(text, pl) {
 }
 function applyDone(pl, t0) {
   listLoading = false;
+  if (TIZEN) setTimeout(tvResume, 300);
   var hn = lsGet('homeN', {}) || {}; hn[pl.id] = { live: cat.live.length, movie: cat.movie.length, series: cat.series.length }; lsSet('homeN', hn);
   renderHome();
   if (!window.__bootMs) { try { window.__bootMs = Math.round(Date.now() - (performance.timeOrigin || performance.timing.navigationStart)); window.__parseMs = Date.now() - t0; } catch (e) {} }
+}
+// TV "Oynatıcıyı sıfırla" sonrası: izlenen kanal / film yeniden açılır (film kaldığı yerden)
+function tvResume() {
+  var r = null; try { r = JSON.parse(localStorage.getItem('tv.resume') || 'null'); localStorage.removeItem('tv.resume'); } catch (e) {}
+  if (!r || !r.at || Date.now() - r.at > 120000 || !UI2) return;
+  var c = cat.byKey[r.key] || (r.c && r.c.url ? r.c : null); if (!c) return;
+  var k = c.kind === 'episode' ? 'series' : c.kind === 'movie' ? 'movie' : 'live';
+  goList(k);
+  var i = view.indexOf(c);
+  if (i > -1) { sel = i; ensureVisible(i); }
+  play(c, i > -1 ? view : [c]);
+  toast(r.why === 'auto' ? 'Oynatıcı takılmıştı, yeniden başlatıldı' : 'Oynatıcı yeniden başlatıldı');
 }
 function showListMsg(m) { innerEl.style.height = 'auto'; innerEl.innerHTML = '<div class="empty">' + esc(m) + '</div>'; $('listCount').textContent = ''; }
 
