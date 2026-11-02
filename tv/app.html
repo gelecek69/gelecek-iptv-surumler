@@ -1,4 +1,4 @@
-<script>window.__tvBuilt="2.1.48";</script>
+<script>window.__tvBuilt="2.1.49";</script>
 <title>Gelecek IPTV</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -580,6 +580,22 @@ html.is-android body.ui2 .home, html.is-android body.ui2 .rundown { grid-column:
   html.is-android body.ui2 .h-tile { min-height: 92px; }
   html.is-android body.ui2 .h-strips { grid-area: strips; width: 100%; }
   html.is-android body.ui2 .h-acc { grid-area: acc; width: 100%; }
+}
+/* Telefon yatay: liste / dizi sayfasının başlığı kısa — arama Geri ve başlığın sağında aynı satırda, sezonlar tek ince sıra
+   (eskiden başlık ekranın üçte ikisini kaplıyor, ancak 2 bölüm görünüyordu) */
+@media (min-width: 700px) and (max-height: 500px) {
+  html.is-android body.ui2 .rundown { position: relative; }
+  html.is-android body.ui2 .u2-head { padding: 8px calc(46% + 16px) 6px 16px; gap: 10px; min-height: 52px; box-sizing: border-box; }
+  html.is-android body.ui2 .u2-back { height: 36px; padding: 0 12px 0 8px; font-size: 15px; border-radius: 10px; }
+  html.is-android body.ui2 .u2-back svg { width: 18px; height: 18px; }
+  html.is-android body.ui2 .u2-t b { font-size: 19px; }
+  html.is-android body.ui2 .u2-t small { font-size: 10px; }
+  html.is-android body.ui2 .search { position: absolute; top: 8px; right: 16px; width: 46%; padding: 0; z-index: 2; }
+  html.is-android body.ui2 .search input { height: 36px; font-size: 15px; }
+  html.is-android body.ui2 .u2-chips { padding: 0 16px 8px; }
+  html.is-android body.ui2 .u2-seasons:not([hidden]) { display: flex; overflow-x: auto; gap: 6px; padding: 2px 16px 8px; scrollbar-width: none; }
+  html.is-android body.ui2 .season { height: 36px; flex: none; grid-auto-flow: column; align-items: center; gap: 6px; padding: 0 12px; }
+  html.is-android body.ui2 .list-head { padding: 4px 14px; }
 }
 </style>
 
@@ -4728,8 +4744,8 @@ function updCheckAndroid(manual) {
       updSet({ status: 'manual', version: j.versionName, code: +j.versionCode, apk: j.apk || (UPD_BASE + 'GelecekIPTV.apk'), size: +j.size || 0 });
       // her açılışta bir kez sorulur ("Sonra" denirse bir sonraki açılışta yeniden)
       if (manual || !updAskedNow[j.versionCode]) { updAskedNow[j.versionCode] = 1; updInstall(); }
-    } else updSet({ status: 'latest' });
-  }).catch(function (e) { updSet({ status: 'error', error: e.message }); });
+    } else { updSet({ status: 'latest' }); if (manual) toast('En güncel sürümü kullanıyorsun' + (NATIVE.appVersionName ? ' (' + NATIVE.appVersionName() + ')' : '')); }
+  }).catch(function (e) { updSet({ status: 'error', error: e.message }); if (manual) toast('Güncelleme denetlenemedi (internet?)'); });
 }
 window.__iptvUpdate = function (state, pct, msg) {   // Android: indirme / kurulum durumu
   if (state === 'downloading') { UPD.status = 'downloading'; UPD.percent = pct; updRender(); toast('Güncelleme indiriliyor · %' + pct); }
