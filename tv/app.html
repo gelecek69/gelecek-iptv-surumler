@@ -1,4 +1,4 @@
-<script>window.__tvBuilt="2.1.49";</script>
+<script>window.__tvBuilt="2.1.50";</script>
 <title>Gelecek IPTV</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -568,7 +568,7 @@ html.is-android body.ui2 .home, html.is-android body.ui2 .rundown { grid-column:
    Yalnız ana sayfadayken (u-home): liste açıkken ana sayfa gizli kalmalı — 2.1.46'da bu kural gizlemeyi eziyordu. */
 @media (min-width: 700px) and (max-height: 500px) {
   html.is-android body.ui2.u-home:not(.is-fs) .home { display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "brand search" "tiles tiles" "strips strips" "acc acc" "links links"; grid-template-rows: repeat(5, max-content);
-    align-content: start; justify-content: stretch; align-items: center; gap: 10px 18px; padding: 12px 20px 16px; }
+    align-content: start; justify-content: stretch; align-items: center; gap: 8px 18px; padding: 8px 20px 12px; }
   html.is-android body.ui2 .h-brand { position: static; grid-area: brand; }
   html.is-android body.ui2 .h-brand b { font-size: 20px; }
   html.is-android body.ui2 .h-logo { width: 34px; height: 34px; }
@@ -577,7 +577,17 @@ html.is-android body.ui2 .home, html.is-android body.ui2 .rundown { grid-column:
   html.is-android body.ui2 .h-links button { padding: 8px 10px; gap: 7px; font-size: 14px; white-space: nowrap; flex: none; }
   html.is-android body.ui2 .h-links button svg { width: 17px; height: 17px; }
   html.is-android body.ui2 .h-tiles { grid-area: tiles; width: 100%; }
-  html.is-android body.ui2 .h-tile { min-height: 92px; }
+  /* kutular ince: simge solda, yazı yanında (dizi sayfasındaki gibi kısa başlık → aşağıdakiler ekrana sığar) */
+  html.is-android body.ui2 .h-tile { min-height: 0; height: 64px; flex-direction: row; justify-content: center; text-align: left; gap: 14px; padding: 0 16px; }
+  html.is-android body.ui2 .h-tile > span { justify-items: start; }
+  html.is-android body.ui2 .h-tile svg { width: 30px; height: 30px; }
+  html.is-android body.ui2 .h-tile b { font-size: 22px; }
+  html.is-android body.ui2 .h-tile small { font-size: 11px; }
+  html.is-android body.ui2 .h-search { height: 36px; }
+  html.is-android body.ui2 .h-strips { gap: 8px; }
+  html.is-android body.ui2 .h-strip h3 { margin-bottom: 5px; font-size: 11px; }
+  html.is-android body.ui2 .h-it { height: 48px; }
+  html.is-android body.ui2 .h-it .hi-l { width: 38px; height: 38px; }
   html.is-android body.ui2 .h-strips { grid-area: strips; width: 100%; }
   html.is-android body.ui2 .h-acc { grid-area: acc; width: 100%; }
 }
