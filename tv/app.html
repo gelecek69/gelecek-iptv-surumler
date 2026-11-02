@@ -1,4 +1,4 @@
-<script>window.__tvBuilt="2.1.46";</script>
+<script>window.__tvBuilt="2.1.47";</script>
 <title>Gelecek IPTV</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -563,16 +563,17 @@ html.is-android body.ui2 .home, html.is-android body.ui2 .rundown { grid-column:
   html.is-android body.ui2 .h-acc { margin-top: 0; width: min(520px, 100%); }
   html.is-android body.ui2 .h-search { width: min(520px, 100%); }
 }
-/* Telefon yatay (kısa ekran): her şey üstten başlar, taşma yok. Üstte logo + arama, altında menü tek sırada,
-   sonra Canlı / Film / Dizi, sonra son izlenenler yan yana. (Ortalayınca kısa ekranda logo kutuların üstüne biniyordu.) */
+/* Telefon yatay (kısa ekran): her şey üstten başlar, taşma yok. Üstte logo + arama, sonra Canlı / Film / Dizi,
+   son izlenenler yan yana, liste seçimi, en altta menü tek sırada. (Ortalayınca kısa ekranda logo kutuların üstüne biniyordu.)
+   Yalnız ana sayfadayken (u-home): liste açıkken ana sayfa gizli kalmalı — 2.1.46'da bu kural gizlemeyi eziyordu. */
 @media (min-width: 700px) and (max-height: 500px) {
-  html.is-android body.ui2 .home { display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "brand search" "links links" "tiles tiles" "strips strips" "acc acc"; grid-template-rows: repeat(5, max-content);
+  html.is-android body.ui2.u-home:not(.is-fs) .home { display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "brand search" "tiles tiles" "strips strips" "acc acc" "links links"; grid-template-rows: repeat(5, max-content);
     align-content: start; justify-content: stretch; align-items: center; gap: 10px 18px; padding: 12px 20px 16px; }
   html.is-android body.ui2 .h-brand { position: static; grid-area: brand; }
   html.is-android body.ui2 .h-brand b { font-size: 20px; }
   html.is-android body.ui2 .h-logo { width: 34px; height: 34px; }
   html.is-android body.ui2 .h-search { grid-area: search; width: 100%; height: 40px; }
-  html.is-android body.ui2 .h-links { grid-area: links; flex-wrap: nowrap; justify-content: center; overflow-x: auto; padding-top: 0; margin-bottom: 6px; gap: 2px; scrollbar-width: none; }
+  html.is-android body.ui2 .h-links { grid-area: links; flex-wrap: nowrap; justify-content: center; overflow-x: auto; padding-top: 6px; margin-top: 4px; border-top: 1px solid var(--line); gap: 2px; scrollbar-width: none; }
   html.is-android body.ui2 .h-links button { padding: 8px 10px; gap: 7px; font-size: 14px; white-space: nowrap; flex: none; }
   html.is-android body.ui2 .h-links button svg { width: 17px; height: 17px; }
   html.is-android body.ui2 .h-tiles { grid-area: tiles; width: 100%; }
