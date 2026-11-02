@@ -1,4 +1,4 @@
-<script>window.__tvBuilt="2.1.50";</script>
+<script>window.__tvBuilt="2.1.51";</script>
 <title>Gelecek IPTV</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -530,6 +530,10 @@ body.ui2 .rail .brand { display: none; }
 body.ui2 .rail .pl-select { display: none; }
 .grp-close { display: none; }
 body.ui2.grp-open .grp-close { display: flex; align-items: center; gap: 8px; margin: 16px 16px 6px; }
+/* telefonda (dar ekran) eski görünümün "grupları gizle" kuralı paneli boş bırakıyordu: panel açıkken gruplar görünür */
+body.ui2.grp-open .rail .groups { display: flex; flex: 1; min-height: 0; overflow-y: auto; }
+body.ui2.grp-open .rail { flex-direction: column; align-items: stretch; }
+body.ui2.grp-open .rail .grp-close { align-self: flex-start; }
 /* tam ekranda soldaki liste: yalnız kanallar */
 body.ui2.is-fs .home { display: none; }
 body.ui2.is-fs .app { grid-template-columns: minmax(0, 1fr); }   /* tam ekranda yayın tüm genişlik */
