@@ -1,4 +1,4 @@
-<script>window.__tvBuilt="2.1.51";</script>
+<script>window.__tvBuilt="2.1.52";</script>
 <title>Gelecek IPTV</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -786,7 +786,7 @@ html.is-android body.ui2 .home, html.is-android body.ui2 .rundown { grid-column:
     <div class="field" id="pinF2" hidden><label for="pin2" id="pinL2">Yeni şifre</label><input id="pin2" type="password" inputmode="numeric" autocomplete="off" maxlength="12"></div>
     <div class="field" id="pinF3" hidden><label for="pin3">Yeni şifre (tekrar)</label><input id="pin3" type="password" inputmode="numeric" autocomplete="off" maxlength="12"></div>
     <p class="err" id="pinErr" hidden></p>
-    <div class="row-actions" style="justify-content:space-between"><button class="btn ghost" type="button" id="pinForgot">Şifremi unuttum</button><span style="display:flex;gap:8px"><button class="btn ghost" type="button" id="pinCancel">Vazgeç</button><button class="btn" type="button" id="pinOk">Aç</button></span></div>
+    <div class="row-actions" style="justify-content:space-between"><span style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn ghost" type="button" id="pinForgot">Şifremi unuttum</button><button class="btn ghost" type="button" id="pinNoCode" hidden>Kurtarma kodum da yok</button></span><span style="display:flex;gap:8px"><button class="btn ghost" type="button" id="pinCancel">Vazgeç</button><button class="btn" type="button" id="pinOk">Aç</button></span></div>
   </div>
 </div>
 <div class="modal" id="dlDlg" hidden>
@@ -5714,7 +5714,8 @@ function pinDialog(mode, after) {
   if (mode === 'unlock' && !PIN) mode = 'create';
   pinMode = mode; pinAfter = after || (mode === 'create' || mode === 'unlock' ? unlockAdult : null);
   ['pin1', 'pin2', 'pin3'].forEach(function (i) { $(i).value = ''; });
-  $('pinErr').hidden = true; $('pinForgot').hidden = mode !== 'unlock'; $('pinCancel').hidden = false;
+  $('pinErr').hidden = true; $('pinForgot').hidden = mode !== 'unlock'; $('pinNoCode').hidden = mode !== 'change'; $('pinCancel').hidden = false;
+  $('pin1').setAttribute('inputmode', mode === 'reset' ? 'text' : 'numeric'); $('pin1').maxLength = mode === 'reset' ? 128 : 12;
   if (mode === 'unlock') {
     $('pinTitle').textContent = '+18 içerik kilitli';
     $('pinMsg').textContent = 'Yetişkin içerikleri görmek için şifreyi gir. Program kapanana ya da "Kilitle"ye basılana kadar açık kalır.';
@@ -5727,6 +5728,10 @@ function pinDialog(mode, after) {
     $('pinTitle').textContent = '+18 şifresini değiştir';
     $('pinMsg').textContent = 'Mevcut şifreyi (unuttuysan kurtarma kodunu) ve yeni şifreyi yaz.';
     pinShow(true, true, 'Mevcut şifre ya da kurtarma kodu', 'Yeni şifre'); $('pinOk').textContent = 'Değiştir';
+  } else if (mode === 'reset') {
+    $('pinTitle').textContent = 'Şifremi ve kodumu unuttum';
+    $('pinMsg').textContent = 'Eklediğin IPTV hesabının şifresini yaz (sağlayıcının verdiği Xtream şifresi). Doğruysa +18 şifresi sıfırlanır ve yenisini belirlersin. Listelerin, favorilerin ve ayarların silinmez.';
+    pinShow(true, true, 'IPTV hesabının şifresi', 'Yeni +18 şifresi'); $('pinOk').textContent = 'Sıfırla';
   }
   $('pinDlg').hidden = false;
   setTimeout(function () { (mode === 'create' ? $('pin2') : $('pin1')).focus(); }, 30);
@@ -5747,6 +5752,16 @@ function pinShowCode(code) {
   pinShow(false, false); $('pinErr').hidden = true; $('pinForgot').hidden = true; $('pinCancel').hidden = true; $('pinOk').textContent = 'Yazdım, devam';
   $('pinOk').focus();
 }
+// "Kurtarma kodum da yok": eklenmiş Xtream hesaplarından birinin şifresi bilinirse +18 şifresi sıfırlanır
+function acctPasswords() {
+  var out = [];
+  playlists.forEach(function (p) {
+    if (!p || p.id === DEMO_ID) return;
+    if (p.pass) out.push(String(p.pass));
+    var c = p.url && M3U.xtreamCreds(p.url); if (c && c.pass) out.push(String(c.pass));
+  });
+  return out;
+}
 function pinSubmit() {
   if (pinMode === 'code') { var a = pinAfter; pinClose(); if (a) a(); renderAdultHint(); return; }
   if (Date.now() < pinWaitUntil) return pinErr('Çok fazla yanlış deneme. ' + Math.ceil((pinWaitUntil - Date.now()) / 1000) + ' sn bekle.');
@@ -5757,6 +5772,20 @@ function pinSubmit() {
     return true;
   };
   if (pinMode === 'create') { if (!newOk()) return; pinStore(p2).then(pinShowCode); return; }
+  if (pinMode === 'reset') {
+    var pw = $('pin1').value;   // IPTV şifresi: boşluklar dahil olduğu gibi
+    var list = acctPasswords();
+    if (!list.length) return pinErr('Bu cihazda şifresi bilinen bir Xtream hesabı yok. Bu yol yalnız Xtream hesabıyla (sunucu + kullanıcı adı + şifre, ya da içinde şifre olan M3U linki) çalışır.');
+    if (!pw) return pinErr('IPTV hesabının şifresini yaz.');
+    if (list.indexOf(pw) < 0 && list.indexOf(pw.trim()) < 0) {
+      pinFails++; if (pinFails >= 5) { pinWaitUntil = Date.now() + 30000; pinFails = 0; }
+      $('pin1').value = ''; $('pin1').focus(); return pinErr('IPTV şifresi yanlış.');
+    }
+    pinFails = 0;
+    if (!newOk()) return;
+    pinAfter = function () { toast('+18 şifresi sıfırlandı ve yenisi kaydedildi'); };
+    pinStore(p2).then(pinShowCode); return;
+  }
   if (!p1) return pinErr('Şifreyi yaz.');
   pinVerify(p1).then(function (ok) {
     if (!ok) {
@@ -5770,6 +5799,7 @@ function pinSubmit() {
 }
 $('pinOk').onclick = pinSubmit;
 $('pinCancel').onclick = pinClose;
+$('pinNoCode').onclick = function () { pinDialog('reset'); };
 $('pinForgot').onclick = function () { pinDialog('change'); $('pinMsg').textContent = 'Şifreyi unuttuysan "Mevcut şifre" kutusuna kurtarma kodunu yaz (şifreyi oluştururken gösterilen 8 karakterlik kod), sonra yeni şifreyi belirle.'; };
 $('pinDlg').addEventListener('click', function (e) { if (e.target === this && pinMode !== 'code') pinClose(); });
 function unlockAdult() {
